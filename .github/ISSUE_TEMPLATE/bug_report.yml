@@ -1,0 +1,61 @@
+name: Bug 反馈
+description: 报告工具功能或部署异常
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请确认：
+        - 已使用「仅备份当前主题」功能确认备份流程可用
+        - 已经阅读 README 的「已知问题」部分（字体实验性、框架级深度主题不支持等不属于 Bug）
+  - type: input
+    id: device
+    attributes:
+      label: 设备型号
+      description: 例如 Xiaomi Pad 8 Pro (25091RP04C)
+    validations:
+      required: true
+  - type: input
+    id: system-version
+    attributes:
+      label: 系统版本
+      description: 设置 → 我的设备 → 全部参数，例如 HyperOS 4.0.0.31 (Android 17)
+    validations:
+      required: true
+  - type: input
+    id: tool-version
+    attributes:
+      label: 工具版本
+      description: 设置内 APK 版本或安装包文件名，例如 v1.2
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 从选择主题包开始，逐步描述操作过程与预期/实际结果
+      placeholder: |
+        1. 打开应用，选择 xx.mtz
+        2. 勾选 xx 组件，点部署
+        3. 预期：xxx；实际：xxx
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 完整日志
+      description: |
+        二选一（都要最好）：
+        1. 应用内日志：部署后在应用底部日志区全选复制
+        2. adb 日志：连接电脑后执行 `adb logcat -d | grep -aiE "themetool|system_theme|DEPLOY|FATAL"` 的完整输出
+        **没有日志的问题原则上无法排查。**
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息（可选）
+      description: 主题包来源、截图等
+    validations:
+      required: false

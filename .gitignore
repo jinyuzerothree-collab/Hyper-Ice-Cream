@@ -1,0 +1,20 @@
+# Build outputs
+build/
+out/
+*.apk
+!release_publish/*.apk
+*.keystore
+tmp/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Local test artifacts
+*_test/
+test_*.mtz
