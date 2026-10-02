@@ -25,6 +25,11 @@
 
 说明：桌面图标包含在「系统图标」组件中，没有独立的桌面组件。框架级深度主题（framework-res 注入）不在本工具范围内；maml 动画、动态壁纸、音效组件会被自动跳过。
 
+## 下载
+
+- GitHub Releases: https://github.com/jinyuzerothree-collab/HyperOS-Theme-Installer/releases
+- 123云盘镜像（国内直连，永久有效）: https://1833975553.share.123pan.cn/123pan/ick9Td-NxW73
+
 ## 使用要求
 
 - 已 Root 的 HyperOS 平板（KernelSU / Magisk 均可，需要授权 su）
