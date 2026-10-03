@@ -36,7 +36,7 @@ public class AboutPage {
         root.setPadding(dp(act, 20), dp(act, 64), dp(act, 20), dp(act, 40));
         scroll.addView(root);
 
-        // ===== Hero：自绘字标（Canvas 粗体，不依赖系统 TextView 字重） =====
+        // ===== Hero：自绘字标（HarmonyOS 式细字重，不依赖系统 TextView 字重） =====
         ImageView wordmark = new ImageView(act);
         wordmark.setImageBitmap(wordmarkBitmap(act, night));
         wordmark.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -137,18 +137,17 @@ public class AboutPage {
         return scroll;
     }
 
-    /** 自绘字标：Canvas 加粗描边渲染，厚度不受系统字体影响 */
+    /** 自绘字标：HarmonyOS 式细字重（sans-serif-light + 细描边），厚度可控 */
     private static android.graphics.Bitmap wordmarkBitmap(Activity act, boolean night) {
         float density = act.getResources().getDisplayMetrics().density;
         String text = "Hyper Ice Cream";
         android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-        p.setTextSize(40 * density);
-        p.setTypeface(Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD));
-        p.setFakeBoldText(true);
-        p.setLetterSpacing(-0.01f);
+        p.setTextSize(42 * density);
+        p.setTypeface(Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL));
+        p.setLetterSpacing(0.02f);
         p.setColor(night ? 0xFFF0E2EC : 0xFF7A2F4E);
         p.setStyle(android.graphics.Paint.Style.FILL_AND_STROKE);
-        p.setStrokeWidth(1.1f * density); // 描边减细：粗而不肿
+        p.setStrokeWidth(0.6f * density); // 极细描边，仅抗锯齿增厚
         float tw = p.measureText(text);
         android.graphics.Paint.FontMetrics fm = p.getFontMetrics();
         int w = (int) (tw + 8 * density);
