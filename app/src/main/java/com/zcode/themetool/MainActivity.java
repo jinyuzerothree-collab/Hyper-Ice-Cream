@@ -157,9 +157,21 @@ public class MainActivity extends Activity {
         initSwipeDetector();
         applyL10n();
         applyImmersive();
+        applyGlobalBackground();
         switchPage(0);
         attachGlassDock(); // 真·液态玻璃：独立窗口 + blurBehind（API31+），失败则用内嵌 Dock
         autoExportWidgetAssets(); // 修复"部署在先、导出逻辑在后"导致素材缺失：打开应用即补导出
+    }
+
+    /** 全局渐变背景：关于页同款渐变铺满全部页面 */
+    private void applyGlobalBackground() {
+        View root = findViewById(R.id.root_container);
+        GradientDrawable bg = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                isNight()
+                        ? new int[]{0xFF1B2438, 0xFF241B33, 0xFF0F141F}
+                        : new int[]{0xFFFFD3E2, 0xFFE3D4FF, 0xFFFFEDF0});
+        root.setBackground(bg);
     }
 
     /** 沉浸式：渐变背景顶到屏幕最上沿（透明状态栏），消除"白色刘海块" */
@@ -429,26 +441,45 @@ public class MainActivity extends Activity {
     }
 
     private void switchPage(int idx) {
-        currentPage = idx;
+        if (idx == currentPage && findViewById(idx == 0 ? R.id.page_home
+                : idx == 1 ? R.id.page_community
+                : idx == 2 ? R.id.page_tools : R.id.page_about).getVisibility() == View.VISIBLE) {
+            return;
+        }
         if (idx == 1) openCommunity(); // 懒构建 + 每次进入刷新
         if (idx == 3 && aboutBuilt == false) {
             ((LinearLayout) findViewById(R.id.about_container)).addView(AboutPage.build(this));
             aboutBuilt = true;
         }
-        pageHome.setVisibility(idx == 0 ? View.VISIBLE : View.GONE);
-        pageCommunity.setVisibility(idx == 1 ? View.VISIBLE : View.GONE);
-        pageTools.setVisibility(idx == 2 ? View.VISIBLE : View.GONE);
-        findViewById(R.id.page_about).setVisibility(idx == 3 ? View.VISIBLE : View.GONE);
+        int dir = idx > currentPage ? 1 : -1;
+        View oldPage = currentPage == 0 ? pageHome
+                : currentPage == 1 ? pageCommunity
+                : currentPage == 2 ? pageTools : findViewById(R.id.page_about);
+        final View target = idx == 0 ? pageHome
+                : idx == 1 ? pageCommunity
+                : idx == 2 ? pageTools : findViewById(R.id.page_about);
+        currentPage = idx;
         styleTab(tabHome, idx == 0);
         styleTab(tabCommunity, idx == 1);
         styleTab(tabTools, idx == 2);
         styleTab(tabAbout, idx == 3);
         styleGlassTabs(idx);
-        View target = idx == 0 ? pageHome : (idx == 1 ? pageCommunity
-                : (idx == 2 ? pageTools : findViewById(R.id.page_about)));
+        // 丝滑滑动过渡：旧页滑出淡去，新页滑入
+        float slide = 60 * dir * getResources().getDisplayMetrics().density;
+        final View fOld = oldPage;
+        fOld.animate().translationX(-slide).alpha(0f).setDuration(180)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .withEndAction(() -> {
+                    fOld.setVisibility(View.GONE);
+                    fOld.setTranslationX(0);
+                    fOld.setAlpha(1f);
+                }).start();
+        target.setVisibility(View.VISIBLE);
         target.setAlpha(0f);
-        target.animate().alpha(1f).setDuration(180).start();
-        // 轻微弹性反馈
+        target.setTranslationX(slide);
+        target.animate().translationX(0f).alpha(1f).setDuration(220)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        // Dock 弹性反馈
         View bar = glassDockView != null ? glassDockView : dock;
         bar.animate().scaleX(0.96f).scaleY(0.96f).setDuration(70)
                 .withEndAction(() -> bar.animate().scaleX(1f).scaleY(1f).setDuration(90).start()).start();

@@ -23,33 +23,28 @@ public class AboutPage {
 
         ScrollView scroll = new ScrollView(act);
         scroll.setFillViewport(true);
-        // 整页渐变背景：Hero 与正文自然糅合，无分界线
-        GradientDrawable pageBg = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                night
-                        ? new int[]{0xFF1B2438, 0xFF241B33, 0xFF0F141F}
-                        : new int[]{0xFFFFD3E2, 0xFFE3D4FF, 0xFFFFEDF0});
-        scroll.setBackground(pageBg);
+        // 背景透明：全局渐变由 MainActivity 根容器提供
 
         LinearLayout root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(act, 20), dp(act, 64), dp(act, 20), dp(act, 40));
         scroll.addView(root);
 
-        // ===== Hero：自绘字标（HarmonyOS 式细字重，不依赖系统 TextView 字重） =====
-        ImageView wordmark = new ImageView(act);
-        wordmark.setImageBitmap(wordmarkBitmap(act, night));
-        wordmark.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(act, 78));
-        wordmark.setLayoutParams(wlp);
-        root.addView(wordmark);
+        // ===== Hero：标题（系统粗体，黑色/白色，同首页规格） =====
+        TextView name = new TextView(act);
+        name.setText("Hyper Ice Cream");
+        name.setTextSize(28);
+        name.setTypeface(Typeface.DEFAULT_BOLD);
+        name.setTextColor(night ? 0xFFF0F0F0 : 0xFF000000);
+        name.setGravity(Gravity.CENTER);
+        root.addView(name);
 
+        // ===== Hero：副标题（版本 | release，同规格粗体） =====
         TextView ver = new TextView(act);
         ver.setText(AboutBuild.VERSION_NAME + " | " + L10n.t(act, "release"));
         ver.setTextSize(15);
         ver.setTypeface(Typeface.DEFAULT_BOLD);
-        ver.setTextColor(night ? 0xAAFFFFFF : 0xAA3A1A28);
+        ver.setTextColor(night ? 0xAAFFFFFF : 0xAA000000);
         ver.setGravity(Gravity.CENTER);
         ver.setPadding(0, dp(act, 8), 0, dp(act, 26));
         root.addView(ver);
