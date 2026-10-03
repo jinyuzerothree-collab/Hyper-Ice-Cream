@@ -152,9 +152,58 @@ public class MainActivity extends Activity {
         tabTools.setOnClickListener(v -> switchPage(2));
         tabAbout.setOnClickListener(v -> switchPage(3));
         applyDockStyle();
+        applyL10n();
         switchPage(0);
         attachGlassDock(); // 真·液态玻璃：独立窗口 + blurBehind（API31+），失败则用内嵌 Dock
     }
+
+    // ---------- 三语（简/繁/英） ----------
+    private void applyL10n() {
+        L10n.init(this);
+        ((TextView) findViewById(R.id.home_sub)).setText(L10n.t(this, "sub"));
+        ((Button) findViewById(R.id.btn_pick)).setText(L10n.t(this, "pick"));
+        ((Button) findViewById(R.id.btn_deploy)).setText(L10n.t(this, "deploy"));
+        ((Button) findViewById(R.id.btn_backup)).setText(L10n.t(this, "backup"));
+        ((Button) findViewById(R.id.btn_restore)).setText(L10n.t(this, "restore"));
+        ((Button) findViewById(R.id.btn_restart)).setText(L10n.t(this, "restart_sysui"));
+        ((Button) findViewById(R.id.btn_launcher)).setText(L10n.t(this, "restart_home"));
+        ((Button) findViewById(R.id.btn_perm)).setText(L10n.t(this, "perm"));
+        tabHome.setText(L10n.t(this, "tab_home"));
+        tabCommunity.setText(L10n.t(this, "tab_community"));
+        tabTools.setText(L10n.t(this, "tab_tools"));
+        tabAbout.setText(L10n.t(this, "tab_about"));
+        for (TextView t : glassTabs) {
+            int i = glassTabs.indexOf(t);
+            t.setText(L10n.t(this, i == 0 ? "tab_home" : i == 1 ? "tab_community" : i == 2 ? "tab_tools" : "tab_about"));
+        }
+    }
+
+    // ---------- 左右滑动切页 ----------
+    private int currentPage = 0;
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        swipeDetector.onTouchEvent(ev);
+        return super.dispatchTouchEvent(ev);
+    }
+
+    private final android.view.GestureDetector swipeDetector = new android.view.GestureDetector(this,
+            new android.view.GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onFling(android.view.MotionEvent e1, android.view.MotionEvent e2, float vx, float vy) {
+                    if (e1 == null || e2 == null) return false;
+                    float dx = e2.getX() - e1.getX();
+                    float dy = e2.getY() - e1.getY();
+                    if (Math.abs(dx) > dp(80) && Math.abs(dx) > Math.abs(dy) * 2) {
+                        int next = currentPage + (dx < 0 ? 1 : -1);
+                        if (next >= 0 && next <= 3 && next != currentPage) {
+                            switchPage(next);
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            });
 
     @Override
     protected void onDestroy() {
@@ -248,9 +297,10 @@ public class MainActivity extends Activity {
             if (i == active) {
                 GradientDrawable pill = new GradientDrawable();
                 pill.setCornerRadius(dp(24));
-                pill.setColor(accentColor);
+                pill.setColor(isNight() ? 0x40FFFFFF : 0x4AFFFFFF);
+                pill.setStroke((int) dp(1), isNight() ? 0x30FFFFFF : 0x50FFFFFF);
                 t.setBackground(pill);
-                t.setTextColor(Color.WHITE);
+                t.setTextColor(isNight() ? 0xFFFFFFFF : 0xFF222222);
                 t.setTypeface(Typeface.DEFAULT_BOLD);
             } else {
                 t.setBackground(null);
@@ -315,15 +365,17 @@ public class MainActivity extends Activity {
 
     private void styleTab(TextView t, boolean active) {
         if (active) {
+            // 液态玻璃同材质覆盖层：比 Dock 底更亮/更暗一层，非实色
             GradientDrawable pill = new GradientDrawable();
             pill.setCornerRadius(dp(24));
-            pill.setColor(accentColor);
+            pill.setColor(isNight() ? 0x40FFFFFF : 0x4AFFFFFF);
+            pill.setStroke((int) dp(1), isNight() ? 0x30FFFFFF : 0x50FFFFFF);
             t.setBackground(pill);
-            t.setTextColor(Color.WHITE);
+            t.setTextColor(isNight() ? 0xFFFFFFFF : 0xFF222222);
             t.setTypeface(Typeface.DEFAULT_BOLD);
         } else {
             t.setBackground(null);
-            t.setTextColor(isNight() ? 0xCCFFFFFF : 0xCC111111);
+            t.setTextColor(isNight() ? 0xB3FFFFFF : 0xB3222222);
             t.setTypeface(Typeface.DEFAULT);
         }
     }
@@ -333,6 +385,7 @@ public class MainActivity extends Activity {
     }
 
     private void switchPage(int idx) {
+        currentPage = idx;
         if (idx == 1) openCommunity(); // 懒构建 + 每次进入刷新
         if (idx == 3 && aboutBuilt == false) {
             ((LinearLayout) findViewById(R.id.about_container)).addView(AboutPage.build(this));
@@ -685,6 +738,78 @@ public class MainActivity extends Activity {
         }
         if (selected.isEmpty()) { log("未勾选任何组件"); return; }
 
+        // 小组件：先让用户逐个选择宽×高（格数），直接写入注入的尺寸声明
+        final List<Object[]> sel = new ArrayList<>(selected);
+        final java.util.HashMap<String, int[]> widgetSizes = new java.util.HashMap<>();
+        final List<Object[]> widgets = new ArrayList<>();
+        for (Object[] c : sel) {
+            String n = (String) c[0];
+            if (WIDGET_PATTERN.matcher(n).matches() || n.startsWith("gadgets/")) widgets.add(c);
+        }
+        if (widgets.isEmpty()) {
+            runDeploy(sel, widgetSizes);
+            return;
+        }
+        askWidgetSize(widgets, 0, widgetSizes, sel);
+    }
+
+    private void askWidgetSize(final List<Object[]> widgets, final int idx,
+                               final java.util.HashMap<String, int[]> sizes, final List<Object[]> sel) {
+        if (idx >= widgets.size()) {
+            runDeploy(sel, sizes);
+            return;
+        }
+        final Object[] c = widgets.get(idx);
+        String name = (String) c[0];
+        String shortName = name.startsWith("gadgets/") ? name.substring(8) : name;
+        Matcher dm = Pattern.compile("(\\d+)x(\\d+)$").matcher(shortName);
+        int defW = dm.find() ? Integer.parseInt(dm.group(1)) : 2;
+        int defH2 = dm.matches() ? Integer.parseInt(dm.group(2)) : 2;
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.HORIZONTAL);
+        box.setGravity(android.view.Gravity.CENTER);
+        android.widget.EditText wIn = new android.widget.EditText(this);
+        wIn.setText(String.valueOf(defW));
+        wIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        wIn.setGravity(android.view.Gravity.CENTER);
+        android.widget.EditText hIn = new android.widget.EditText(this);
+        hIn.setText(String.valueOf(defH2));
+        hIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        hIn.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        ep.setMargins(dp(12), 0, dp(12), 0);
+        wIn.setLayoutParams(ep);
+        hIn.setLayoutParams(ep);
+        box.addView(wIn);
+        box.addView(new TextView(this) {{ setText("×"); }});
+        box.addView(hIn);
+
+        new AlertDialog.Builder(this)
+                .setTitle("小组件尺寸：" + shortName)
+                .setMessage("选择宽 × 高（桌面格数，1–6）。\n将按所选尺寸注入组件声明。")
+                .setView(box)
+                .setCancelable(false)
+                .setNegativeButton("默认", (d, w) -> {
+                    sizes.put(name, new int[]{defW, defH2});
+                    askWidgetSize(widgets, idx + 1, sizes, sel);
+                })
+                .setPositiveButton("确定", (d, w) -> {
+                    try {
+                        int ww = Math.max(1, Math.min(6, Integer.parseInt(wIn.getText().toString())));
+                        int hh = Math.max(1, Math.min(6, Integer.parseInt(hIn.getText().toString())));
+                        sizes.put(name, new int[]{ww, hh});
+                    } catch (Throwable t) {
+                        sizes.put(name, new int[]{defW, defH2});
+                    }
+                    askWidgetSize(widgets, idx + 1, sizes, sel);
+                })
+                .show();
+    }
+
+    private void runDeploy(List<Object[]> selected, java.util.HashMap<String, int[]> widgetSizes) {
+
         String ts = String.valueOf(System.currentTimeMillis() / 1000);
         StringBuilder sb = new StringBuilder();
         sb.append("mkdir -p /sdcard/ThemeToolBackup/backup_").append(ts).append('\n');
@@ -702,10 +827,21 @@ public class MainActivity extends Activity {
                 fontsPath = path;
                 continue;
             }
-            // 小组件：注入标准 description.xml（size 声明），否则 Launcher 识别为固定尺寸
+            // 小组件：注入标准 description.xml（size 用用户选择的宽×高）
             if (WIDGET_PATTERN.matcher(name).matches() && !"gadgets".equals(name)) {
-                File fixed = prepareWidgetContainer(name, path);
+                int[] wh = widgetSizes.get(name);
+                File fixed = prepareWidgetContainer(name, path,
+                        wh != null ? String.valueOf(wh[0]) : null,
+                        wh != null ? String.valueOf(wh[1]) : null);
                 if (fixed != null) path = fixed.getAbsolutePath();
+                deployedGadgets = true;
+            } else if (name.startsWith("gadgets/")) {
+                int[] wh = widgetSizes.get(name);
+                if (wh != null) {
+                    File fixed = prepareWidgetContainer(name, path,
+                            String.valueOf(wh[0]), String.valueOf(wh[1]));
+                    if (fixed != null) path = fixed.getAbsolutePath();
+                }
                 deployedGadgets = true;
             }
             if (name.contains("/")) {
@@ -805,8 +941,9 @@ public class MainActivity extends Activity {
 
     /** 小组件容器修复：缺失 description.xml 时注入标准 <MIUI-Theme category size> 声明。
      *  出厂参照: clock_classical.mtz size="4:2" / weather_4x1 size="4:1" / notes size="2:2"。
-     *  根因: Launcher 依赖 description.xml 的 size 属性判断可缩放尺寸，缺失则降级为固定尺寸。 */
-    private File prepareWidgetContainer(String name, String path) {
+     *  根因: Launcher 依赖 description.xml 的 size 属性判断组件尺寸；缺失则降级为固定 2×1。
+     *  用户可在部署前自选宽×高（wIn/hIn），按组件名原始比例的倍数注入。 */
+    private File prepareWidgetContainer(String name, String path, String wOverride, String hOverride) {
         try {
             if (!zipfileHasEntries(new File(path))) return null;
             ZipFile zf = new ZipFile(new File(path));
@@ -814,9 +951,13 @@ public class MainActivity extends Activity {
             zf.close();
             if (hasDesc) return null;
 
-            String w = "2", h = "2";
-            Matcher m = Pattern.compile("(\\d+)x(\\d+)$").matcher(name);
-            if (m.find()) { w = m.group(1); h = m.group(2); }
+            String w = wOverride != null && !wOverride.isEmpty() ? wOverride : "2";
+            String h = hOverride != null && !hOverride.isEmpty() ? hOverride : "2";
+            if (wOverride == null || hOverride == null ||
+                    (wOverride.isEmpty() || hOverride.isEmpty())) {
+                Matcher m = Pattern.compile("(\\d+)x(\\d+)$").matcher(name);
+                if (m.find()) { w = m.group(1); h = m.group(2); }
+            }
             String category = "clock";
             String low = name.toLowerCase();
             if (low.startsWith("weather")) category = "weather";
