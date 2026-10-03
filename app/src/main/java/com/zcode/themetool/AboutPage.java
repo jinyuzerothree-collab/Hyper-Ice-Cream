@@ -217,7 +217,8 @@ public class AboutPage {
         TextView t = new TextView(act);
         t.setText(s);
         t.setTextSize(sp);
-        t.setTypeface(bold ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT_BOLD); // 全粗体
+        // 关于页统一加粗：粗一点点（与首页标题同级字重）
+        t.setTypeface(Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
         t.setTextColor(color);
         t.setPadding(0, 0, 0, dp(act, padBottomDp));
         return t;

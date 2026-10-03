@@ -175,7 +175,66 @@ public class MainActivity extends Activity {
         root.setBackground(bg);
     }
 
-    /** 工具页扩展：Dock 三常驻图标开关 + 假信号浮层开关 */
+    /** 旧组件白名单管理：列出带小组件接收器的三方应用，勾选写入白名单文件 */
+    private void showWhitelistDialog() {
+        android.content.Intent q = new android.content.Intent(
+                "android.appwidget.action.APPWIDGET_UPDATE");
+        q.setPackage(null);
+        java.util.List<android.content.pm.ResolveInfo> ris =
+                getPackageManager().queryBroadcastReceivers(q,
+                        android.content.pm.PackageManager.GET_META_DATA);
+        java.util.LinkedHashMap<String, String> pkgs = new java.util.LinkedHashMap<>();
+        if (ris != null) {
+            for (android.content.pm.ResolveInfo ri : ris) {
+                if (ri.activityInfo == null) continue;
+                String p = ri.activityInfo.packageName;
+                if (p.equals(getPackageName())) continue; // 自身已预置
+                String label = (String) getPackageManager().getApplicationLabel(
+                        ri.activityInfo.applicationInfo == null
+                                ? getApplicationInfo() : ri.activityInfo.applicationInfo);
+                pkgs.put(p, label + " (" + p + ")");
+            }
+        }
+        // 当前白名单
+        java.util.Set<String> current = new java.util.HashSet<>();
+        String cur = execSu("cat /data/system/hypericecream_widget_whitelist.txt 2>/dev/null");
+        if (cur != null) {
+            for (String line : cur.split("\n")) {
+                line = line.trim();
+                if (!line.isEmpty() && !line.startsWith("enabled=")
+                        && !line.startsWith("#") && line.contains(".")) current.add(line);
+            }
+        }
+        String[] names = pkgs.values().toArray(new String[0]);
+        final String[] keys = pkgs.keySet().toArray(new String[0]);
+        boolean[] checks = new boolean[keys.length];
+        for (int i = 0; i < keys.length; i++) checks[i] = current.contains(keys[i]);
+
+        new AlertDialog.Builder(this)
+                .setTitle("选择要恢复旧组件的应用")
+                .setMultiChoiceItems(names, checks, (d, w, c) -> checks[w] = c)
+                .setPositiveButton("保存白名单", (d, w) -> {
+                    StringBuilder sb = new StringBuilder("enabled=1\n");
+                    int n = 0;
+                    for (int i = 0; i < keys.length; i++) {
+                        if (checks[i]) {
+                            sb.append(keys[i]).append('\n');
+                            n++;
+                        }
+                    }
+                    sb.append(getPackageName()).append('\n');
+                    String body = sb.toString().replace("\n", "\\n").replace("'", "'\\''");
+                    String r = execSu("echo -e '" + body + "' > "
+                            + "/data/system/hypericecream_widget_whitelist.txt && "
+                            + "chmod 644 /data/system/hypericecream_widget_whitelist.txt && echo WL-SAVED");
+                    log(r.contains("WL-SAVED")
+                            ? "✅ 白名单已保存（" + n + " 个应用 + 自身）。重启平板后旧组件出现在小部件列表。"
+                            : "白名单保存失败: " + r);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
     private void buildToolExtras() {
         LinearLayout tools = (LinearLayout) ((ScrollView) findViewById(R.id.page_tools)).getChildAt(0);
         TextView t = new TextView(this);
@@ -198,37 +257,23 @@ public class MainActivity extends Activity {
             });
             tools.addView(cb);
         }
+        // ===== 旧组件白名单管理（替代假信号位） =====
         TextView t2 = new TextView(this);
-        t2.setText("假信号（显示层·小白卡）");
+        t2.setText("旧版小组件白名单（恢复到新桌面）");
         t2.setTextSize(14);
         t2.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         t2.setPadding(0, dp(16), 0, dp(6));
         tools.addView(t2);
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        Button start = new Button(this);
-        start.setText("启动显示");
-        start.setOnClickListener(v -> {
-            if (!android.provider.Settings.canDrawOverlays(this)) {
-                Toast.makeText(this, "请先允许「显示在其他应用上层」权限", Toast.LENGTH_LONG).show();
-                startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:com.zcode.themetool")));
-                return;
-            }
-            startService(new Intent(this, FakeSignalService.class));
-            log("假信号浮层已启动（状态栏右上角，纯显示）");
-        });
-        row.addView(start);
-        Button stop = new Button(this);
-        stop.setText("停止显示");
-        stop.setOnClickListener(v -> stopService(new Intent(this, FakeSignalService.class)));
-        row.addView(stop);
-        tools.addView(row);
-        TextView note = new TextView(this);
-        note.setText("说明：仅状态栏视觉伪装（四格+4G），不产生真实网络。");
-        note.setTextSize(11);
-        tools.addView(note);
+        Button wl = new Button(this);
+        wl.setText("选择要恢复的组件应用");
+        wl.setOnClickListener(v -> showWhitelistDialog());
+        tools.addView(wl);
+        TextView wlNote = new TextView(this);
+        wlNote.setText("勾选后写入白名单并保存；模块作用域需含\ncom.miui.home + android(系统框架)，重启生效。");
+        wlNote.setTextSize(11);
+        tools.addView(wlNote);
     }
+
 
     private String dockConfGet(String key) {
         String r = execSu("grep -E '^" + key + "=' /data/system/hypericecream_dock.conf");
