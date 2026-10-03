@@ -1,30 +1,30 @@
 # NEXT_TASK.md — 下一阶段任务清单
 
-> v1.5 已发布（重构+修复）。设备连接: 无线调试（端口变化找用户要）；Root = KernelSU su。
+> **v2.0 已发布（品牌: Hyper Ice Cream）**。设备: 无线调试（端口变化找用户要）；Root = KernelSU su。
 > 网络: github.com 走代理 `set HTTPS_PROXY=http://127.0.0.1:7897`；gh 在 `C:\abuild\gh\bin\gh.exe`；构建 `python C:\Users\雪糕\.zcode\workspace\default\build_tt.py`。
+> 注意: 全局 git insteadOf 把 github.com 重写为 gh-proxy 前缀（已用仓库级同名重写抵消 push 影响）。
 
-## 1. 【P0 待用户验证】Gadgets 缩放手柄
-- 根因已实锤+修复已部署: 出厂组件带 description.xml `<MIUI-Theme category size>`（size=宽:高），第三方简化格式（如 Neo clock_2x4）缺失 → Launcher 降级固定尺寸
-- 工具已实现自动注入（prepareWidgetContainer），设备上手动 repack 的 clock_2x4(size=2:4) 也已部署
-- 用户解锁平板 → 桌面长按 → 添加小组件 → 时钟应显示 2×4 → 添加后长按出现缩放手柄
-- 若仍无手柄: 抓 `adb logcat | grep -aiE gadget` 看 GadgetMtzParser 尺寸解析；候选补法: content/manifest.xml 包装（出厂格式是 content/ 子目录+<Gadget> 根元素，Neo 是根级 manifest+<Clock>）
+## 1. 【P0 待用户验收】
+- [ ] 悬浮 Glass Dock 四页视觉（部署/社区/工具/关于）+ 壁纸取色药丸
+- [ ] gadgets 缩放手柄（description.xml 注入修复已部署设备；手动 repack 版 clock_2x4(size=2:4) 也在 /data/system/theme/clock_2x4）
+- [ ] 「Hyper Ice Cream」系统小组件：桌面长按 → 小部件 → Hyper Ice Cream → 添加后自由缩放；应显示主题数字时钟（素材来自 clock_2x4）
+- [ ] 关于页：设备卡片/开发者/链接
+- [ ] 社区页刷新（样例条目）
 
-## 2. 【P0 待用户验证】v1.5 UI/UX 验收
-- 悬浮 Glass Dock 三页切换 + 动态取色（壁纸主色药丸）
-- 社区页刷新列表（索引当前 1 条样例）
-- 下载进度管理器（需 index 里有真实 download_url 的条目才能完整验证）
+## 2. 【P1】HyperWidget 增强
+- [ ] 分钟级刷新（AlarmManager；当前 30min 周期）
+- [ ] 天气接入（主题 weather 贴图已可提取；数据源 content://weather 需自实现查询）
+- [ ] 多字体支持（type_0~type_11 换挡，对应主题 BroadcastBinder fontID 机制）
+- [ ] 用户上传新组件样本（weather/notes/calculator）时扩展素材提取（WIDGET_PATTERN 已兼容命名）
 
-## 3. 【P1】回填 Neo 索引真实数据
-- [ ] 向用户要 Neo.mtz 的发布页链接（source_url/download_url）
-- [ ] 或: 计算本地 Neo.mtz sha256 + 挂到 GitHub Release（community-v1）作为 download_url + preview 图上传 themes/Neo/
-- [ ] 更新 themes/index.json 推送
+## 3. 【P1】社区回填与回归
+- [ ] Neo 真实 download_url/sha256/preview_url 回填 index.json（sha256 可本地计算）
+- [ ] 真实条目下载全流程回归（进度条/校验/部署）
+- [ ] GitHub Actions 自动生成 index.json（阶段三）
 
-## 4. 【P1】贡献信息在社区导出 UI 中落位核查（v1.4 加的 askContributionInfo 在 v1.5 重构后仍在主流程，回归测试一遍）
-
-## 5. 【P2】
-- [ ] RenderEffect 真 behind-blur（API31+）视用户反馈
-- [ ] index.json Actions 自动生成
-- [ ] Shizuku 只读模式
+## 4. 【P2】真 blur 迁移评估
+- 实测 HyperOS4 运行时无 blurBehindRadius 字段（NoSuchFieldException）→ 需 Compose/MIUIX 工具链迁移（Gradle+Kotlin 环境，大工程，单列）
+- 备选: RenderEffect 快照方案（对静态内容可行）
 
 ## 禁止事项（用户约定）
 - 不做: 长按菜单移植、KSU 挂载方案、自建服务器、P2P、硬编码组件尺寸
