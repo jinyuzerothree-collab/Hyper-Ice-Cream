@@ -1,105 +1,253 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/page_scroll"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_container"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:layout_height="match_parent">
 
-    <LinearLayout
-        android:orientation="vertical"
+    <!-- ===== 页面 1: 部署（首页） ===== -->
+    <ScrollView
+        android:id="@+id/page_home"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp">
-
-        <Button
-            android:id="@+id/btn_perm"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:text="授权所有文件访问"/>
-
-        <Button
-            android:id="@+id/btn_pick"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="① 选择主题包 / 字体文件"/>
-
-        <ImageView
-            android:id="@+id/meta_preview"
-            android:layout_width="match_parent"
-            android:layout_height="150dp"
-            android:scaleType="fitCenter"
-            android:adjustViewBounds="true"
-            android:visibility="gone"
-            android:contentDescription="主题预览图"/>
-
-        <TextView
-            android:id="@+id/meta_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:textSize="12sp"
-            android:padding="6dp"
-            android:background="#11000000"/>
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingBottom="120dp">
 
         <LinearLayout
-            android:id="@+id/comps"
             android:orientation="vertical"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="4dp"/>
-
-        <Button
-            android:id="@+id/btn_deploy"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:enabled="false"
-            android:text="② 部署到系统主题 (自动备份)"/>
-
-        <Button
-            android:id="@+id/btn_backup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="仅备份当前主题"/>
-
-        <Button
-            android:id="@+id/btn_restore"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="还原最近一次备份"/>
-
-        <Button
-            android:id="@+id/btn_restart"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="重启系统界面 (SystemUI)"/>
-
-    <Button
-        android:id="@+id/btn_launcher"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="重启桌面 (Launcher，部署小组件后使用)"/>
-
-    <Button
-        android:id="@+id/btn_community"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="社区主题库（在线浏览 / 获取）"/>
-
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:layout_marginTop="12dp"
-            android:background="#11000000">
+            android:padding="20dp">
 
             <TextView
-                android:id="@+id/log"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="主题直装"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="2dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="将主题组件直接部署到系统主题目录"
+                android:textSize="12sp"
+                android:layout_marginBottom="16dp"/>
+
+            <Button
+                android:id="@+id/btn_perm"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:text="授权所有文件访问"/>
+
+            <Button
+                android:id="@+id/btn_pick"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="选择主题包 / 字体文件"/>
+
+            <ImageView
+                android:id="@+id/meta_preview"
+                android:layout_width="match_parent"
+                android:layout_height="170dp"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"
+                android:visibility="gone"
+                android:layout_marginTop="8dp"
+                android:contentDescription="主题预览图"/>
+
+            <TextView
+                android:id="@+id/meta_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:textSize="12sp"
+                android:padding="10dp"
+                android:layout_marginTop="8dp"
+                android:background="#11000000"/>
+
+            <LinearLayout
+                android:id="@+id/comps"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:padding="4dp"/>
+
+            <Button
+                android:id="@+id/btn_deploy"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:layout_marginTop="8dp"
+                android:text="部署到系统主题（自动备份）"/>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:layout_marginTop="12dp"
+                android:background="#11000000">
+
+                <TextView
+                    android:id="@+id/log"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:padding="6dp"
+                    android:text="等待操作…\n"/>
+            </ScrollView>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- ===== 页面 2: 社区 ===== -->
+    <ScrollView
+        android:id="@+id/page_community"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:visibility="gone"
+        android:clipToPadding="false"
+        android:paddingBottom="120dp">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="社区主题库"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="2dp"/>
+
+            <TextView
+                android:id="@+id/community_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="12sp"
-                android:fontFamily="monospace"
-                android:padding="6dp"
-                android:text="等待操作…\n"/>
-        </ScrollView>
+                android:layout_marginBottom="8dp"
+                android:text="点击「刷新列表」拉取在线索引。"/>
+
+            <ProgressBar
+                android:id="@+id/community_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:max="100"/>
+
+            <TextView
+                android:id="@+id/community_phase"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:textSize="11sp"/>
+
+            <LinearLayout
+                android:id="@+id/community_container"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- ===== 页面 3: 工具 ===== -->
+    <ScrollView
+        android:id="@+id/page_tools"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:visibility="gone"
+        android:clipToPadding="false"
+        android:paddingBottom="120dp">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="工具箱"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+
+            <Button
+                android:id="@+id/btn_backup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="仅备份当前主题"/>
+
+            <Button
+                android:id="@+id/btn_restore"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="还原最近一次备份"/>
+
+            <Button
+                android:id="@+id/btn_restart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="重启系统界面 (SystemUI)"/>
+
+            <Button
+                android:id="@+id/btn_launcher"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="重启桌面 (Launcher，部署小组件后使用)"/>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- ===== Liquid Glass 悬浮底栏 ===== -->
+    <LinearLayout
+        android:id="@+id/dock"
+        android:layout_width="wrap_content"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="22dp"
+        android:orientation="horizontal"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
+        android:elevation="20dp">
+
+        <TextView
+            android:id="@+id/tab_home"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingLeft="22dp"
+            android:paddingRight="22dp"
+            android:text="部署"
+            android:textSize="15sp"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:id="@+id/tab_community"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingLeft="22dp"
+            android:paddingRight="22dp"
+            android:text="社区"
+            android:textSize="15sp"/>
+
+        <TextView
+            android:id="@+id/tab_tools"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingLeft="22dp"
+            android:paddingRight="22dp"
+            android:text="工具"
+            android:textSize="15sp"/>
     </LinearLayout>
-</ScrollView>
+</FrameLayout>

@@ -2,16 +2,25 @@ package com.zcode.themetool;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.WallpaperManager;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.view.View;
 import android.widget.Toast;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -21,7 +30,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
@@ -29,10 +42,13 @@ import java.util.zip.ZipOutputStream;
 
 public class MainActivity extends Activity {
     private static final int REQ_PICK = 41;
-    // 主题小组件命名模式（clock_2x4 / weather_4x1 / notes_xxx / calculator_xxx / gadget*，样本 Neo.mtz 证实）
-    private static final java.util.regex.Pattern WIDGET_PATTERN =
-            java.util.regex.Pattern.compile("^(clock|weather|notes|calculator|gadget)([_\\-].+)?$",
-                    java.util.regex.Pattern.CASE_INSENSITIVE);
+    // 主题小组件命名模式（clock_2x4 / weather_4x1 / notes_xxx / calculator_xxx / gadget*）
+    private static final Pattern WIDGET_PATTERN =
+            Pattern.compile("^(clock|weather|notes|calculator|gadget)([_\\-](\\d+)x(\\d+))?$",
+                    Pattern.CASE_INSENSITIVE);
+    private static final String COMMUNITY_PREF = "community_pref";
+    private static final String KEY_COMMUNITY_FILES = "community_files";
+
     private TextView log;
     private LinearLayout compsBox;
     private File unpackedDir;
@@ -45,9 +61,19 @@ public class MainActivity extends Activity {
     private File browserDir = new File("/sdcard/Download");
     private boolean showAll = false;
 
+    // 页面与底栏
+    private ScrollView pageHome, pageCommunity, pageTools;
+    private View dock;
+    private TextView tabHome, tabCommunity, tabTools;
+    private int accentColor = 0xFF3D7EFF;
+    private CommunityFragment community;
+    private String pendingCommunityFile; // 社区下载主题的路径 → 禁止再次贡献
+
     private void log(String s) {
-        runOnUiThread(() -> log.setText(log.getText() + s + "\n"));
+        runOnUiThread(() -> logView.setText(logView.getText() + s + "\n"));
     }
+
+    private TextView logView;
 
     private String execSu(String script) {
         try {
@@ -74,32 +100,26 @@ public class MainActivity extends Activity {
     }
 
     private boolean storageOk() {
-        return android.os.Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager();
+        return Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager();
     }
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_main);
-        log = findViewById(R.id.log);
+        logView = findViewById(R.id.log);
         compsBox = findViewById(R.id.comps);
         unpackedDir = new File(getCacheDir(), "unpack");
 
-        Button pick = findViewById(R.id.btn_pick);
-        Button deploy = findViewById(R.id.btn_deploy);
-        Button backup = findViewById(R.id.btn_backup);
-        Button restore = findViewById(R.id.btn_restore);
-        Button restart = findViewById(R.id.btn_restart);
-        Button launcher = findViewById(R.id.btn_launcher);
-        Button perm = findViewById(R.id.btn_perm);
+        applyDynamicColor();
 
         String id = execSu("id");
         log("root检查: " + (id.contains("uid=0") ? "OK (已授权)" : "未授权，部署时请允许 su 请求"));
         if (!storageOk()) {
-            perm.setVisibility(Button.VISIBLE);
-            log("提示：请先点「授权所有文件访问」，否则浏览器看不到文件。");
+            findViewById(R.id.btn_perm).setVisibility(View.VISIBLE);
+            log("提示：请在「部署」页点「授权所有文件访问」。");
         }
-        perm.setOnClickListener(v -> {
+        findViewById(R.id.btn_perm).setOnClickListener(v -> {
             try {
                 startActivity(new Intent("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION",
                         Uri.parse("package:com.zcode.themetool")));
@@ -108,49 +128,116 @@ public class MainActivity extends Activity {
             }
         });
 
-        pick.setOnClickListener(v -> showBrowser());
-        deploy.setOnClickListener(v -> doDeploy());
-        backup.setOnClickListener(v -> doBackup());
-        restore.setOnClickListener(v -> doRestore());
-        restart.setOnClickListener(v -> {
+        findViewById(R.id.btn_pick).setOnClickListener(v -> showBrowser());
+        findViewById(R.id.btn_deploy).setOnClickListener(v -> doDeploy());
+        findViewById(R.id.btn_backup).setOnClickListener(v -> doBackup());
+        findViewById(R.id.btn_restore).setOnClickListener(v -> doRestore());
+        findViewById(R.id.btn_restart).setOnClickListener(v -> {
             execSu("am crash com.android.systemui");
             log("SystemUI 重启指令已发送。");
         });
-        launcher.setOnClickListener(v -> doRestartLauncher());
-        Button community = findViewById(R.id.btn_community);
-        community.setOnClickListener(v -> showCommunity());
+        findViewById(R.id.btn_launcher).setOnClickListener(v -> doRestartLauncher());
+
+        pageHome = findViewById(R.id.page_home);
+        pageCommunity = findViewById(R.id.page_community);
+        pageTools = findViewById(R.id.page_tools);
+        dock = findViewById(R.id.dock);
+        tabHome = findViewById(R.id.tab_home);
+        tabCommunity = findViewById(R.id.tab_community);
+        tabTools = findViewById(R.id.tab_tools);
+        tabHome.setOnClickListener(v -> switchPage(0));
+        tabCommunity.setOnClickListener(v -> switchPage(1));
+        tabTools.setOnClickListener(v -> switchPage(2));
+        applyDockStyle();
+        switchPage(0);
     }
 
-    // ---------- 社区主题库（阶段二，独立模块 CommunityFragment） ----------
-    private CommunityFragment community;
+    // ---------- 动态取色（Material You 近似） ----------
+    private boolean isNight() {
+        int m = getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return m == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+    }
 
-    private void showCommunity() {
-        if (community == null) {
-            community = new CommunityFragment(new CommunityFragment.Host() {
-                @Override public void log(String s) { MainActivity.this.log(s); }
-                @Override public String execSu(String script) { return MainActivity.this.execSu(script); }
-                @Override public android.app.Activity activity() { return MainActivity.this; }
-                @Override public void onDeployCommunityTheme(File mtz) {
-                    runOnUiThread(() -> {
-                        comps.clear();
-                        renderMeta();
-                        detectComponents(mtz);
-                        Toast.makeText(MainActivity.this,
-                                "主题已下载并完成识别，请勾选组件后点「部署到系统主题」", Toast.LENGTH_LONG).show();
-                        // 滚回顶部让用户看到组件列表
-                        ((ScrollView) findViewById(R.id.page_scroll)).smoothScrollTo(0, 0);
-                    });
+    private void applyDynamicColor() {
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                WallpaperManager wm = WallpaperManager.getInstance(this);
+                android.app.WallpaperColors wc = wm.getWallpaperColors(WallpaperManager.FLAG_SYSTEM);
+                if (wc != null) {
+                    int primary = wc.getPrimaryColor().toArgb();
+                    // 提亮/压暗作为 accent，保证对比度
+                    accentColor = isNight() ? lighten(primary, 0.35f) : darken(primary, 0.15f);
                 }
-            });
+            }
+        } catch (Throwable ignored) {
         }
-        View page = community.buildView();
-        new AlertDialog.Builder(this)
-                .setTitle("社区主题库")
-                .setView(page)
-                .setPositiveButton("刷新", (d, w) -> community.refreshAsync())
-                .setNegativeButton("关闭", null)
-                .show();
-        community.refreshAsync();
+    }
+
+    private static int lighten(int c, float f) {
+        int r = Color.red(c), g = Color.green(c), b = Color.blue(c);
+        r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f;
+        return Color.rgb(r, g, b);
+    }
+
+    private static int darken(int c, float f) {
+        return Color.rgb((int) (Color.red(c) * (1 - f)),
+                (int) (Color.green(c) * (1 - f)), (int) (Color.blue(c) * (1 - f)));
+    }
+
+    // ---------- Liquid Glass 悬浮底栏 ----------
+    private void applyDockStyle() {
+        boolean night = isNight();
+        GradientDrawable glass = new GradientDrawable();
+        glass.setCornerRadius(dp(30));
+        glass.setColor(night ? 0xB3141414 : 0xB3F5F7FA);
+        glass.setStroke((int) dp(1), night ? 0x26FFFFFF : 0x40FFFFFF);
+        dock.setBackground(glass);
+        dock.setElevation(dp(16));
+        // 高光：顶部内描边模拟液态玻璃反射
+        GradientDrawable highlight = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x33FFFFFF, 0x00FFFFFF});
+        highlight.setCornerRadius(dp(30));
+        // tab 样式
+        styleTab(tabHome, true);
+        styleTab(tabCommunity, false);
+        styleTab(tabTools, false);
+    }
+
+    private void styleTab(TextView t, boolean active) {
+        if (active) {
+            GradientDrawable pill = new GradientDrawable();
+            pill.setCornerRadius(dp(24));
+            pill.setColor(accentColor);
+            t.setBackground(pill);
+            t.setTextColor(Color.WHITE);
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+        } else {
+            t.setBackground(null);
+            t.setTextColor(isNight() ? 0xCCFFFFFF : 0xCC111111);
+            t.setTypeface(Typeface.DEFAULT);
+        }
+    }
+
+    private float dp(int v) {
+        return v * getResources().getDisplayMetrics().density;
+    }
+
+    private void switchPage(int idx) {
+        if (idx == 1) openCommunity(); // 懒构建 + 每次进入刷新
+        pageHome.setVisibility(idx == 0 ? View.VISIBLE : View.GONE);
+        pageCommunity.setVisibility(idx == 1 ? View.VISIBLE : View.GONE);
+        pageTools.setVisibility(idx == 2 ? View.VISIBLE : View.GONE);
+        styleTab(tabHome, idx == 0);
+        styleTab(tabCommunity, idx == 1);
+        styleTab(tabTools, idx == 2);
+        View target = idx == 0 ? pageHome : (idx == 1 ? pageCommunity : pageTools);
+        target.setAlpha(0f);
+        target.animate().alpha(1f).setDuration(180).start();
+        // 轻微弹性反馈
+        dock.animate().scaleX(0.96f).scaleY(0.96f).setDuration(70)
+                .withEndAction(() -> dock.animate().scaleX(1f).scaleY(1f).setDuration(90).start()).start();
     }
 
     // ---------- 内置文件浏览器 ----------
@@ -202,6 +289,7 @@ public class MainActivity extends Activity {
                         dlg.dismiss();
                         comps.clear();
                         lastMeta = null;
+                        lastPicked = f;
                         addComp("fonts", f.getAbsolutePath());
                         renderComps();
                         renderMeta();
@@ -248,6 +336,10 @@ public class MainActivity extends Activity {
             log("非 zip 或解包失败，按单文件处理: " + t);
         }
 
+        lastPicked = picked;
+        lastBase = base;
+        lastMeta = MetadataParser.parse(base, picked);
+
         for (String comp : new String[]{"com.android.systemui", "icons"}) {
             File f = new File(base, comp);
             if (f.isFile()) addComp(comp, f.getAbsolutePath());
@@ -271,12 +363,7 @@ public class MainActivity extends Activity {
         if (wall != null) addComp("wallpaper", wall.getAbsolutePath());
         if (lock != null) addComp("lock_wallpaper", lock.getAbsolutePath());
 
-        // 元数据（commit: add theme metadata preview 复用）
-        lastPicked = picked;
-        lastBase = base;
-        lastMeta = MetadataParser.parse(base, picked);
-
-        // 主题小组件：顶层 widget 命名组件（clock_2x4 等，样本 Neo.mtz 证实）+ gadgets/ 目录（出厂风格）
+        // 主题小组件：顶层 widget 命名组件 + gadgets/ 目录
         hasGadgets = false;
         File[] tops = base.listFiles();
         if (tops != null) {
@@ -314,25 +401,42 @@ public class MainActivity extends Activity {
         log("提示：桌面图标的替换包含在「系统图标」组件中（桌面没有独立组件）。");
     }
 
-    // ---------- 元数据预览卡（commit: add theme metadata preview） ----------
+    private void renderComps() {
+        compsBox.removeAllViews();
+        for (Object[] c : comps) {
+            CheckBox cb = new CheckBox(this);
+            cb.setText((String) c[1]);
+            cb.setChecked(true);
+            cb.setTag(c);
+            compsBox.addView(cb);
+        }
+        if (comps.isEmpty()) {
+            log("未发现可部署组件");
+            findViewById(R.id.btn_deploy).setEnabled(false);
+        } else {
+            findViewById(R.id.btn_deploy).setEnabled(true);
+            log("勾选要应用的组件后点「部署」。");
+        }
+    }
+
     private void renderMeta() {
-        android.widget.ImageView pv = findViewById(R.id.meta_preview);
+        ImageView pv = findViewById(R.id.meta_preview);
         TextView mt = findViewById(R.id.meta_text);
         if (lastMeta == null) {
-            pv.setVisibility(android.view.View.GONE);
-            mt.setVisibility(android.view.View.GONE);
+            pv.setVisibility(View.GONE);
+            mt.setVisibility(View.GONE);
             return;
         }
         if (!lastMeta.previews.isEmpty()) {
-            android.graphics.Bitmap bm = decodeSampled(lastMeta.previews.get(0), 720);
+            Bitmap bm = decodeSampled(lastMeta.previews.get(0), 720);
             if (bm != null) {
                 pv.setImageBitmap(bm);
-                pv.setVisibility(android.view.View.VISIBLE);
+                pv.setVisibility(View.VISIBLE);
             } else {
-                pv.setVisibility(android.view.View.GONE);
+                pv.setVisibility(View.GONE);
             }
         } else {
-            pv.setVisibility(android.view.View.GONE);
+            pv.setVisibility(View.GONE);
         }
         StringBuilder sb = new StringBuilder();
         sb.append("主题名称: ").append(lastMeta.name).append('\n');
@@ -350,7 +454,7 @@ public class MainActivity extends Activity {
             while (it.hasNext()) sb.append(it.next()).append(it.hasNext() ? "、 " : "");
         }
         mt.setText(sb.toString());
-        mt.setVisibility(android.view.View.VISIBLE);
+        mt.setVisibility(View.VISIBLE);
     }
 
     private String fmtSize(long bytes) {
@@ -360,36 +464,18 @@ public class MainActivity extends Activity {
         return bytes + "B";
     }
 
-    private android.graphics.Bitmap decodeSampled(File f, int target) {
+    private Bitmap decodeSampled(File f, int target) {
         try {
-            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            BitmapFactory.Options o = new BitmapFactory.Options();
             o.inJustDecodeBounds = true;
-            android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+            BitmapFactory.decodeFile(f.getAbsolutePath(), o);
             int sample = 1;
             while (o.outWidth / sample > target) sample *= 2;
-            android.graphics.BitmapFactory.Options o2 = new android.graphics.BitmapFactory.Options();
+            BitmapFactory.Options o2 = new BitmapFactory.Options();
             o2.inSampleSize = sample;
-            return android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath(), o2);
+            return BitmapFactory.decodeFile(f.getAbsolutePath(), o2);
         } catch (Throwable t) {
             return null;
-        }
-    }
-
-    private void renderComps() {
-        compsBox.removeAllViews();
-        for (Object[] c : comps) {
-            CheckBox cb = new CheckBox(this);
-            cb.setText((String) c[1]);
-            cb.setChecked(true);
-            cb.setTag(c);
-            compsBox.addView(cb);
-        }
-        if (comps.isEmpty()) {
-            log("未发现可部署组件");
-            findViewById(R.id.btn_deploy).setEnabled(false);
-        } else {
-            findViewById(R.id.btn_deploy).setEnabled(true);
-            log("勾选要应用的组件后点「部署」。");
         }
     }
 
@@ -497,13 +583,17 @@ public class MainActivity extends Activity {
                 fontsPath = path;
                 continue;
             }
-            // gadgets/ 子目录组件：先建父目录（/data/system/theme/gadgets/）
+            // 小组件：注入标准 description.xml（size 声明），否则 Launcher 识别为固定尺寸
+            if (WIDGET_PATTERN.matcher(name).matches() && !"gadgets".equals(name)) {
+                File fixed = prepareWidgetContainer(name, path);
+                if (fixed != null) path = fixed.getAbsolutePath();
+                deployedGadgets = true;
+            }
             if (name.contains("/")) {
                 String parent = name.substring(0, name.lastIndexOf('/'));
                 sb.append("mkdir -p /data/system/theme/").append(parent).append('\n');
                 deployedGadgets = true;
             }
-            if (WIDGET_PATTERN.matcher(name).matches()) deployedGadgets = true;
             sb.append("cp '").append(path).append("' /data/system/theme/").append(name).append('\n');
             sb.append("chown system_theme:system_theme /data/system/theme/").append(name).append('\n');
             sb.append("chmod ").append(name.equals("wallpaper") ? "600" : "755")
@@ -511,7 +601,7 @@ public class MainActivity extends Activity {
         }
         sb.append("echo DEPLOY-DONE\n");
         String r = execSu(sb.toString());
-        if (fontsPath != null) {
+        if (needFontsZip && fontsPath != null) {
             StringBuilder fs2 = new StringBuilder();
             fs2.append("mkdir -p /data/system/theme/fonts\n");
             if (needFontsZip) {
@@ -530,39 +620,128 @@ public class MainActivity extends Activity {
         log(r);
         if (r.contains("DEPLOY-DONE")) {
             log("✅ 部署完成，已自动备份到 /sdcard/ThemeToolBackup/backup_" + ts);
-            if (fontsPath != null) log("字体为实验性部署，建议重启设备后查看效果。");
             if (deployedGadgets) {
-                log("主题小组件已部署。请前往：\n  桌面长按 → 添加小组件 → 主题组件\n查看已安装内容；也可点「重启桌面」后查看。");
+                log("主题小组件已部署（含标准尺寸声明）。请前往：\n  桌面长按 → 添加小组件\n添加后长按组件可拖拽调整尺寸。");
             }
-            log("壁纸如未变化请重启设备；也可点「重启系统界面」。");
-            if (lastMeta != null) {
+            log("壁纸如未变化请重启设备；工具页可一键重启 SystemUI/Launcher。");
+            boolean isCommunity = pendingCommunityFile != null
+                    && pendingCommunityFile.equals(lastPicked.getAbsolutePath());
+            if (!isCommunity && lastMeta != null) {
                 new AlertDialog.Builder(this)
                         .setTitle("分享主题给社区？")
                         .setMessage("当前主题已成功部署。\n是否将该主题贡献到社区主题库？\n帮助更多平板用户发现优质主题。")
                         .setNegativeButton("取消", null)
                         .setPositiveButton("分享", (d, w) -> askContributionInfo())
                         .show();
+            } else if (isCommunity) {
+                log("（该主题来自社区下载，不再重复贡献）");
+                pendingCommunityFile = null;
             }
         } else {
             log("部署未确认，检查上面输出（多半是 su 未授权）。");
         }
     }
 
-    // 社区收录要求：贡献者署名 + 来源声明（可空但会提示）
+    /** 小组件容器修复：缺失 description.xml 时注入标准 <MIUI-Theme category size> 声明。
+     *  出厂参照: clock_classical.mtz size="4:2" / weather_4x1 size="4:1" / notes size="2:2"。
+     *  根因: Launcher 依赖 description.xml 的 size 属性判断可缩放尺寸，缺失则降级为固定尺寸。 */
+    private File prepareWidgetContainer(String name, String path) {
+        try {
+            if (!zipfileHasEntries(new File(path))) return null;
+            ZipFile zf = new ZipFile(new File(path));
+            boolean hasDesc = zf.getEntry("description.xml") != null;
+            zf.close();
+            if (hasDesc) return null;
+
+            String w = "2", h = "2";
+            Matcher m = Pattern.compile("(\\d+)x(\\d+)$").matcher(name);
+            if (m.find()) { w = m.group(1); h = m.group(2); }
+            String category = "clock";
+            String low = name.toLowerCase();
+            if (low.startsWith("weather")) category = "weather";
+            else if (low.startsWith("notes")) category = "notes";
+            else if (low.startsWith("calculator")) category = "calculator";
+
+            String desc = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n"
+                    + "<MIUI-Theme category=\"" + category + "\" size=\"" + w + ":" + h + "\">\n"
+                    + "\t<version>1</version>\n\t<uiVersion>1</uiVersion>\n"
+                    + "\t<title>" + name + "</title>\n</MIUI-Theme>\n";
+
+            File out = new File(getCacheDir(), "widget_" + name + "_" + System.currentTimeMillis());
+            ZipInputStream zi = new ZipInputStream(new FileInputStream(path));
+            ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(out));
+            ZipEntry e;
+            byte[] buf = new byte[65536];
+            int n;
+            while ((e = zi.getNextEntry()) != null) {
+                zo.putNextEntry(new ZipEntry(e.getName()));
+                while ((n = zi.read(buf)) > 0) zo.write(buf, 0, n);
+                zo.closeEntry();
+            }
+            zi.close();
+            zo.putNextEntry(new ZipEntry("description.xml"));
+            zo.write(desc.getBytes("UTF-8"));
+            zo.closeEntry();
+            zo.close();
+            log("已为 " + name + " 注入尺寸声明 " + w + "x" + h + "（修复缩放识别）");
+            return out;
+        } catch (Throwable t) {
+            log("小组件容器修复失败（按原样部署）: " + t);
+            return null;
+        }
+    }
+
+    private void doRestartLauncher() {
+        String r = execSu("am force-stop com.miui.home");
+        log(r.contains("SU-ERROR") ? "重启桌面失败: " + r : "✅ 桌面（Launcher）已重启，重新进入桌面即可。");
+    }
+
+    private void doBackup() {
+        String ts = String.valueOf(System.currentTimeMillis() / 1000);
+        String r = execSu("mkdir -p /sdcard/ThemeToolBackup/backup_" + ts +
+                "\ncp -a /data/system/theme/. /sdcard/ThemeToolBackup/backup_" + ts + "/" +
+                "\nchmod -R 777 /sdcard/ThemeToolBackup/backup_" + ts +
+                "\necho BACKUP-DONE");
+        log(r);
+        log(r.contains("BACKUP-DONE") ? "✅ 已备份到 /sdcard/ThemeToolBackup/backup_" + ts : "备份失败");
+    }
+
+    private void doRestore() {
+        String r0 = execSu("ls /sdcard/ThemeToolBackup/");
+        String latest = null;
+        for (String line : r0.split("\n")) {
+            String t = line.trim();
+            if (t.startsWith("backup_")) {
+                if (latest == null || t.compareTo(latest) > 0) latest = t;
+            }
+        }
+        if (latest == null) { log("没有找到任何备份"); return; }
+        StringBuilder sb = new StringBuilder();
+        sb.append("for f in /sdcard/ThemeToolBackup/").append(latest).append("/*; do\n");
+        sb.append("  cp \"$f\" /data/system/theme/$(basename \"$f\")\n");
+        sb.append("done\n");
+        sb.append("for f in /data/system/theme/*; do chown system_theme:system_theme \"$f\"; done\n");
+        sb.append("chmod 600 /data/system/theme/wallpaper 2>/dev/null\n");
+        sb.append("echo RESTORE-DONE\n");
+        String r = execSu(sb.toString());
+        log(r);
+        log(r.contains("RESTORE-DONE") ? "✅ 已从 " + latest + " 还原" : "还原未确认");
+    }
+
+    // ---------- 社区贡献（仅本地导入主题） ----------
     private void askContributionInfo() {
-        Activity act = this;
-        android.widget.EditText nameIn = new android.widget.EditText(act);
+        android.widget.EditText nameIn = new android.widget.EditText(this);
         nameIn.setHint("署名（留空 = " + CommunityExport.anonId(this) + "）");
         nameIn.setSingleLine(true);
-        android.widget.EditText srcIn = new android.widget.EditText(act);
+        android.widget.EditText srcIn = new android.widget.EditText(this);
         srcIn.setHint("来源链接（你在哪里获取的主题，可空）");
         srcIn.setSingleLine(true);
-        LinearLayout box = new LinearLayout(act);
+        LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(48, 16, 48, 0);
         box.addView(nameIn);
         box.addView(srcIn);
-        new AlertDialog.Builder(act)
+        new AlertDialog.Builder(this)
                 .setTitle("贡献信息")
                 .setMessage("收录规范：原作者署名自动取自主题包；请尽量填写主题来源。")
                 .setView(box)
@@ -571,10 +750,6 @@ public class MainActivity extends Activity {
                         nameIn.getText().toString().trim(),
                         srcIn.getText().toString().trim()))
                 .show();
-    }
-
-    private void doCommunityExport() {
-        doCommunityExport("", "");
     }
 
     private void doCommunityExport(String contributor, String sourceUrl) {
@@ -618,41 +793,37 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void doRestartLauncher() {
-        String r = execSu("am force-stop com.miui.home");
-        log(r.contains("SU-ERROR") ? "重启桌面失败: " + r : "✅ 桌面（Launcher）已重启，重新进入桌面即可。");
-    }
-
-    private void doBackup() {
-        String ts = String.valueOf(System.currentTimeMillis() / 1000);
-        String r = execSu("mkdir -p /sdcard/ThemeToolBackup/backup_" + ts +
-                "\ncp -a /data/system/theme/. /sdcard/ThemeToolBackup/backup_" + ts + "/" +
-                "\nchmod -R 777 /sdcard/ThemeToolBackup/backup_" + ts +
-                "\necho BACKUP-DONE");
-        log(r);
-        log(r.contains("BACKUP-DONE") ? "✅ 已备份到 /sdcard/ThemeToolBackup/backup_" + ts : "备份失败");
-    }
-
-    private void doRestore() {
-        String r0 = execSu("ls /sdcard/ThemeToolBackup/");
-        String latest = null;
-        for (String line : r0.split("\n")) {
-            String t = line.trim();
-            if (t.startsWith("backup_")) {
-                if (latest == null || t.compareTo(latest) > 0) latest = t;
-            }
+    // ---------- 社区页托管（CommunityFragment 回调） ----------
+    private void openCommunity() {
+        if (community == null) {
+            community = new CommunityFragment(new CommunityFragment.Host() {
+                @Override public void log(String s) { MainActivity.this.log(s); }
+                @Override public String execSu(String script) { return MainActivity.this.execSu(script); }
+                @Override public Activity activity() { return MainActivity.this; }
+                @Override public TextView statusView() { return findViewById(R.id.community_status); }
+                @Override public android.widget.ProgressBar progressBar() { return findViewById(R.id.community_progress); }
+                @Override public TextView phaseView() { return findViewById(R.id.community_phase); }
+                @Override public void onThemeReady(File mtz) {
+                    runOnUiThread(() -> {
+                        // 社区下载主题：登记路径，部署成功后不再询问贡献
+                        SharedPreferences sp = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE);
+                        Set<String> set = new HashSet<>(sp.getStringSet(KEY_COMMUNITY_FILES, new HashSet<>()));
+                        set.add(mtz.getAbsolutePath());
+                        sp.edit().putStringSet(KEY_COMMUNITY_FILES, set).apply();
+                        pendingCommunityFile = mtz.getAbsolutePath();
+                        comps.clear();
+                        detectComponents(mtz);
+                        Toast.makeText(MainActivity.this,
+                                "下载完成，已识别组件。请勾选后点「部署到系统主题」", Toast.LENGTH_LONG).show();
+                        switchPage(0);
+                        pageHome.post(() -> pageHome.smoothScrollTo(0, 0));
+                    });
+                }
+            });
         }
-        if (latest == null) { log("没有找到任何备份"); return; }
-        String dir = "/sdcard/ThemeToolBackup/" + latest;
-        StringBuilder sb = new StringBuilder();
-        sb.append("for f in /sdcard/ThemeToolBackup/").append(latest).append("/*; do\n");
-        sb.append("  cp \"$f\" /data/system/theme/$(basename \"$f\")\n");
-        sb.append("done\n");
-        sb.append("for f in /data/system/theme/*; do chown system_theme:system_theme \"$f\"; done\n");
-        sb.append("chmod 600 /data/system/theme/wallpaper 2>/dev/null\n");
-        sb.append("echo RESTORE-DONE\n");
-        String r = execSu(sb.toString());
-        log(r);
-        log(r.contains("RESTORE-DONE") ? "✅ 已从 " + latest + " 还原" : "还原未确认");
+        LinearLayout container = findViewById(R.id.community_container);
+        container.removeAllViews();
+        container.addView(community.buildView());
+        community.refreshAsync();
     }
 }
