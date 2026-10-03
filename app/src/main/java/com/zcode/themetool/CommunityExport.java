@@ -48,16 +48,15 @@ public class CommunityExport {
         return id;
     }
 
-    /** 组装导出目录并打包。pickedSource 可为文件或目录（目录时自动打成 theme.mtz）。 */
+    /** 组装导出目录并打包。pickedSource 可为文件或目录（目录时自动打成 theme.mtz）。
+     *  contributor/sourceUrl: 社区收录声明字段（贡献者署名 / 获取来源链接，可空）。 */
     public static Result build(Context ctx, File pickedSource, File unpackedBase,
-                               MetadataParser.Meta meta) throws Exception {
+                               MetadataParser.Meta meta, String contributor, String sourceUrl) throws Exception {
         String safeName = (meta.name == null ? "theme" : meta.name)
                 .replaceAll("[^a-zA-Z0-9\\u4e00-\\u9fa5_-]", "_");
         if (safeName.isEmpty() || safeName.equals("_")) safeName = "theme";
         String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        File dir = new File(Environment_getExternal(), BASE_DIR.substring(1) + "/" + safeName + "_" + ts);
-        // Environment.getExternalStorageDirectory() = /sdcard；BASE_DIR 去掉开头斜杠
-        dir = new File("/sdcard/ThemeToolCommunity/" + safeName + "_" + ts);
+        File dir = new File("/sdcard/ThemeToolCommunity/" + safeName + "_" + ts);
         dir.mkdirs();
         File previewDir = new File(dir, "preview");
         previewDir.mkdirs();
@@ -90,8 +89,11 @@ public class CommunityExport {
         json.put("sha256", meta.sha256);
         json.put("size_bytes", meta.sizeBytes);
         json.put("exported_at", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(new Date()));
-        json.put("tool_version", "1.3");
+        json.put("tool_version", "1.4");
         json.put("anonymous_id", anonId(ctx));
+        json.put("contributor", (contributor == null || contributor.isEmpty())
+                ? anonId(ctx) : contributor);
+        json.put("source_url", sourceUrl == null ? "" : sourceUrl);
         json.put("device_model", android.os.Build.MODEL); // 仅型号，便于适配排查；如介意可手动删除
         File metaJson = new File(dir, "meta.json");
         FileOutputStream fo = new FileOutputStream(metaJson);

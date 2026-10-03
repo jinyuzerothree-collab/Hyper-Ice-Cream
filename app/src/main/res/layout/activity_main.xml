@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/page_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
@@ -73,11 +74,17 @@
             android:layout_height="wrap_content"
             android:text="重启系统界面 (SystemUI)"/>
 
-        <Button
-            android:id="@+id/btn_launcher"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="重启桌面 (Launcher，部署小组件后使用)"/>
+    <Button
+        android:id="@+id/btn_launcher"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="重启桌面 (Launcher，部署小组件后使用)"/>
+
+    <Button
+        android:id="@+id/btn_community"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="社区主题库（在线浏览 / 获取）"/>
 
         <ScrollView
             android:layout_width="match_parent"

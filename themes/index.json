@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Neo",
+    "author": "JellyBeans",
+    "contributor": "anon-sample",
+    "version": "29.260904",
+    "ui_version": "17",
+    "components": ["clock_2x4", "aod", "com.android.systemui", "icons", "lockscreen", "wallpaper/", "fonts"],
+    "sha256": "FILL_AFTER_FIRST_UPLOAD",
+    "size_bytes": 71508200,
+    "preview_url": "https://raw.githubusercontent.com/jinyuzerothree-collab/HyperOS-Theme-Installer/main/themes/Neo/preview_0.jpg",
+    "download_url": "https://github.com/jinyuzerothree-collab/HyperOS-Theme-Installer/releases/download/community-v1/Neo.mtz",
+    "source_url": "",
+    "notes": "样例条目：收录规范见 CONTRIBUTING.md。含桌面时钟小组件 clock_2x4（实测可部署上桌，桌面长按拖拽可调整尺寸）。"
+  }
+]

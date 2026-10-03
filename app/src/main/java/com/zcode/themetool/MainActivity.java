@@ -9,7 +9,9 @@ import android.os.Environment;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
+import android.view.View;
 import android.widget.Toast;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -115,6 +117,40 @@ public class MainActivity extends Activity {
             log("SystemUI 重启指令已发送。");
         });
         launcher.setOnClickListener(v -> doRestartLauncher());
+        Button community = findViewById(R.id.btn_community);
+        community.setOnClickListener(v -> showCommunity());
+    }
+
+    // ---------- 社区主题库（阶段二，独立模块 CommunityFragment） ----------
+    private CommunityFragment community;
+
+    private void showCommunity() {
+        if (community == null) {
+            community = new CommunityFragment(new CommunityFragment.Host() {
+                @Override public void log(String s) { MainActivity.this.log(s); }
+                @Override public String execSu(String script) { return MainActivity.this.execSu(script); }
+                @Override public android.app.Activity activity() { return MainActivity.this; }
+                @Override public void onDeployCommunityTheme(File mtz) {
+                    runOnUiThread(() -> {
+                        comps.clear();
+                        renderMeta();
+                        detectComponents(mtz);
+                        Toast.makeText(MainActivity.this,
+                                "主题已下载并完成识别，请勾选组件后点「部署到系统主题」", Toast.LENGTH_LONG).show();
+                        // 滚回顶部让用户看到组件列表
+                        ((ScrollView) findViewById(R.id.page_scroll)).smoothScrollTo(0, 0);
+                    });
+                }
+            });
+        }
+        View page = community.buildView();
+        new AlertDialog.Builder(this)
+                .setTitle("社区主题库")
+                .setView(page)
+                .setPositiveButton("刷新", (d, w) -> community.refreshAsync())
+                .setNegativeButton("关闭", null)
+                .show();
+        community.refreshAsync();
     }
 
     // ---------- 内置文件浏览器 ----------
@@ -504,7 +540,7 @@ public class MainActivity extends Activity {
                         .setTitle("分享主题给社区？")
                         .setMessage("当前主题已成功部署。\n是否将该主题贡献到社区主题库？\n帮助更多平板用户发现优质主题。")
                         .setNegativeButton("取消", null)
-                        .setPositiveButton("分享", (d, w) -> doCommunityExport())
+                        .setPositiveButton("分享", (d, w) -> askContributionInfo())
                         .show();
             }
         } else {
@@ -512,9 +548,39 @@ public class MainActivity extends Activity {
         }
     }
 
+    // 社区收录要求：贡献者署名 + 来源声明（可空但会提示）
+    private void askContributionInfo() {
+        Activity act = this;
+        android.widget.EditText nameIn = new android.widget.EditText(act);
+        nameIn.setHint("署名（留空 = " + CommunityExport.anonId(this) + "）");
+        nameIn.setSingleLine(true);
+        android.widget.EditText srcIn = new android.widget.EditText(act);
+        srcIn.setHint("来源链接（你在哪里获取的主题，可空）");
+        srcIn.setSingleLine(true);
+        LinearLayout box = new LinearLayout(act);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(48, 16, 48, 0);
+        box.addView(nameIn);
+        box.addView(srcIn);
+        new AlertDialog.Builder(act)
+                .setTitle("贡献信息")
+                .setMessage("收录规范：原作者署名自动取自主题包；请尽量填写主题来源。")
+                .setView(box)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("生成贡献包", (d, w) -> doCommunityExport(
+                        nameIn.getText().toString().trim(),
+                        srcIn.getText().toString().trim()))
+                .show();
+    }
+
     private void doCommunityExport() {
+        doCommunityExport("", "");
+    }
+
+    private void doCommunityExport(String contributor, String sourceUrl) {
         try {
-            CommunityExport.Result r = CommunityExport.build(this, lastPicked, lastBase, lastMeta);
+            CommunityExport.Result r = CommunityExport.build(this, lastPicked, lastBase, lastMeta,
+                    contributor, sourceUrl);
             log("✅ 社区贡献包已导出: " + r.dir);
             new AlertDialog.Builder(this)
                     .setTitle("贡献包已生成")
