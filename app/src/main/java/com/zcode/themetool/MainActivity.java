@@ -36,6 +36,9 @@ public class MainActivity extends Activity {
     private File unpackedDir;
     private final List<Object[]> comps = new ArrayList<>(); // {name, label, path}
     private boolean hasGadgets = false;
+    private File lastPicked;
+    private File lastBase;
+    private MetadataParser.Meta lastMeta;
 
     private File browserDir = new File("/sdcard/Download");
     private boolean showAll = false;
@@ -229,6 +232,11 @@ public class MainActivity extends Activity {
         File lock = findImage(base, true);
         if (wall != null) addComp("wallpaper", wall.getAbsolutePath());
         if (lock != null) addComp("lock_wallpaper", lock.getAbsolutePath());
+
+        // 元数据（commit: add theme metadata preview 复用）
+        lastPicked = picked;
+        lastBase = base;
+        lastMeta = MetadataParser.parse(base, picked);
 
         // 主题小组件：顶层 widget 命名组件（clock_2x4 等，样本 Neo.mtz 证实）+ gadgets/ 目录（出厂风格）
         hasGadgets = false;
@@ -427,8 +435,56 @@ public class MainActivity extends Activity {
                 log("主题小组件已部署。请前往：\n  桌面长按 → 添加小组件 → 主题组件\n查看已安装内容；也可点「重启桌面」后查看。");
             }
             log("壁纸如未变化请重启设备；也可点「重启系统界面」。");
+            if (lastMeta != null) {
+                new AlertDialog.Builder(this)
+                        .setTitle("分享主题给社区？")
+                        .setMessage("当前主题已成功部署。\n是否将该主题贡献到社区主题库？\n帮助更多平板用户发现优质主题。")
+                        .setNegativeButton("取消", null)
+                        .setPositiveButton("分享", (d, w) -> doCommunityExport())
+                        .show();
+            }
         } else {
             log("部署未确认，检查上面输出（多半是 su 未授权）。");
+        }
+    }
+
+    private void doCommunityExport() {
+        try {
+            CommunityExport.Result r = CommunityExport.build(this, lastPicked, lastBase, lastMeta);
+            log("✅ 社区贡献包已导出: " + r.dir);
+            new AlertDialog.Builder(this)
+                    .setTitle("贡献包已生成")
+                    .setMessage("导出目录:\n" + r.dir +
+                            "\n\n包含 theme.mtz / meta.json / preview/")
+                    .setPositiveButton("分享到GitHub", (d, w) -> {
+                        try {
+                            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(CommunityExport.CONTRIBUTION_URL)));
+                        } catch (Throwable t) {
+                            log("打开浏览器失败: " + t);
+                        }
+                    })
+                    .setNeutralButton("发送给维护者", (d, w) -> {
+                        String metaText = readText(r.metaJson);
+                        Intent i = new Intent(Intent.ACTION_SEND);
+                        i.setType("text/plain");
+                        i.putExtra(Intent.EXTRA_SUBJECT, "主题社区贡献: " + lastMeta.name);
+                        i.putExtra(Intent.EXTRA_TEXT, metaText +
+                                "\n\n请将 " + r.dir.getName() + " 目录内的 theme.mtz 一并提交给维护者。");
+                        startActivity(Intent.createChooser(i, "发送贡献信息"));
+                    })
+                    .setNegativeButton("关闭", null)
+                    .show();
+        } catch (Throwable t) {
+            log("社区导出失败: " + t);
+        }
+    }
+
+    private String readText(File f) {
+        try {
+            byte[] all = readAll(new FileInputStream(f));
+            return new String(all, "UTF-8");
+        } catch (Throwable t) {
+            return "(读取失败)";
         }
     }
 
