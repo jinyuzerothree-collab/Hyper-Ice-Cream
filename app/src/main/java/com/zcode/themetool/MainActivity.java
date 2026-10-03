@@ -14,6 +14,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.GestureDetector;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -152,6 +153,7 @@ public class MainActivity extends Activity {
         tabTools.setOnClickListener(v -> switchPage(2));
         tabAbout.setOnClickListener(v -> switchPage(3));
         applyDockStyle();
+        initSwipeDetector();
         applyL10n();
         switchPage(0);
         attachGlassDock(); // 真·液态玻璃：独立窗口 + blurBehind（API31+），失败则用内嵌 Dock
@@ -180,30 +182,33 @@ public class MainActivity extends Activity {
 
     // ---------- 左右滑动切页 ----------
     private int currentPage = 0;
+    private GestureDetector swipeDetector; // 必须在 onCreate 中初始化（构造期 Context 未挂载会 NPE）
+
+    private void initSwipeDetector() {
+        swipeDetector = new GestureDetector(this,
+                new android.view.GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onFling(android.view.MotionEvent e1, android.view.MotionEvent e2, float vx, float vy) {
+                        if (e1 == null || e2 == null) return false;
+                        float dx = e2.getX() - e1.getX();
+                        float dy = e2.getY() - e1.getY();
+                        if (Math.abs(dx) > dp(80) && Math.abs(dx) > Math.abs(dy) * 2) {
+                            int next = currentPage + (dx < 0 ? 1 : -1);
+                            if (next >= 0 && next <= 3 && next != currentPage) {
+                                switchPage(next);
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                });
+    }
 
     @Override
     public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
-        swipeDetector.onTouchEvent(ev);
+        if (swipeDetector != null) swipeDetector.onTouchEvent(ev);
         return super.dispatchTouchEvent(ev);
     }
-
-    private final android.view.GestureDetector swipeDetector = new android.view.GestureDetector(this,
-            new android.view.GestureDetector.SimpleOnGestureListener() {
-                @Override
-                public boolean onFling(android.view.MotionEvent e1, android.view.MotionEvent e2, float vx, float vy) {
-                    if (e1 == null || e2 == null) return false;
-                    float dx = e2.getX() - e1.getX();
-                    float dy = e2.getY() - e1.getY();
-                    if (Math.abs(dx) > dp(80) && Math.abs(dx) > Math.abs(dy) * 2) {
-                        int next = currentPage + (dx < 0 ? 1 : -1);
-                        if (next >= 0 && next <= 3 && next != currentPage) {
-                            switchPage(next);
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-            });
 
     @Override
     protected void onDestroy() {
