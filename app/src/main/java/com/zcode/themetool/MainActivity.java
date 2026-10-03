@@ -27,10 +27,15 @@ import java.util.zip.ZipOutputStream;
 
 public class MainActivity extends Activity {
     private static final int REQ_PICK = 41;
+    // 主题小组件命名模式（clock_2x4 / weather_4x1 / notes_xxx / calculator_xxx / gadget*，样本 Neo.mtz 证实）
+    private static final java.util.regex.Pattern WIDGET_PATTERN =
+            java.util.regex.Pattern.compile("^(clock|weather|notes|calculator|gadget)([_\\-].+)?$",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
     private TextView log;
     private LinearLayout compsBox;
     private File unpackedDir;
     private final List<Object[]> comps = new ArrayList<>(); // {name, label, path}
+    private boolean hasGadgets = false;
 
     private File browserDir = new File("/sdcard/Download");
     private boolean showAll = false;
@@ -80,6 +85,7 @@ public class MainActivity extends Activity {
         Button backup = findViewById(R.id.btn_backup);
         Button restore = findViewById(R.id.btn_restore);
         Button restart = findViewById(R.id.btn_restart);
+        Button launcher = findViewById(R.id.btn_launcher);
         Button perm = findViewById(R.id.btn_perm);
 
         String id = execSu("id");
@@ -105,6 +111,7 @@ public class MainActivity extends Activity {
             execSu("am crash com.android.systemui");
             log("SystemUI 重启指令已发送。");
         });
+        launcher.setOnClickListener(v -> doRestartLauncher());
     }
 
     // ---------- 内置文件浏览器 ----------
@@ -223,6 +230,39 @@ public class MainActivity extends Activity {
         if (wall != null) addComp("wallpaper", wall.getAbsolutePath());
         if (lock != null) addComp("lock_wallpaper", lock.getAbsolutePath());
 
+        // 主题小组件：顶层 widget 命名组件（clock_2x4 等，样本 Neo.mtz 证实）+ gadgets/ 目录（出厂风格）
+        hasGadgets = false;
+        File[] tops = base.listFiles();
+        if (tops != null) {
+            for (File t : tops) {
+                String n = t.getName();
+                if (hasComp(n) || !WIDGET_PATTERN.matcher(n).matches()) continue;
+                if (t.isFile()) {
+                    addComp(n, t.getAbsolutePath());
+                    hasGadgets = true;
+                } else if (t.isDirectory()) {
+                    File zip = new File(unpackedDir, n + ".zip");
+                    if (zipDir(t, zip)) {
+                        addComp(n, zip.getAbsolutePath());
+                        hasGadgets = true;
+                    }
+                }
+            }
+        }
+        File gadgetsDir = new File(base, "gadgets");
+        if (gadgetsDir.isDirectory()) {
+            File[] gs = gadgetsDir.listFiles();
+            if (gs != null) {
+                Arrays.sort(gs, (a, b2) -> a.getName().compareToIgnoreCase(b2.getName()));
+                for (File g : gs) {
+                    String low = g.getName().toLowerCase();
+                    if (!low.endsWith(".mtz") && !low.endsWith(".mrc")) continue;
+                    hasGadgets = true;
+                    addComp("gadgets/" + g.getName(), g.getAbsolutePath());
+                }
+            }
+        }
+
         renderComps();
         log("提示：桌面图标的替换包含在「系统图标」组件中（桌面没有独立组件）。");
     }
@@ -252,6 +292,12 @@ public class MainActivity extends Activity {
         else if (name.equals("wallpaper")) label = "壁纸";
         else if (name.equals("lock_wallpaper")) label = "锁屏壁纸";
         else if (name.equals("fonts")) label = "字体（实验性，部署后建议重启设备）";
+        else if (name.startsWith("gadgets/")) label = "主题小组件 (gadgets/" + name.substring(8) + ")";
+        else if (name.startsWith("clock")) label = "时钟组件 (" + name + ")";
+        else if (name.startsWith("weather")) label = "天气组件 (" + name + ")";
+        else if (name.startsWith("notes")) label = "便签组件 (" + name + ")";
+        else if (name.startsWith("calculator")) label = "计算器组件 (" + name + ")";
+        else if (name.startsWith("gadget")) label = "主题小组件 (" + name + ")";
         else label = name;
         comps.add(new Object[]{name, label, path});
     }
@@ -334,6 +380,7 @@ public class MainActivity extends Activity {
 
         boolean needFontsZip = false;
         String fontsPath = null;
+        boolean deployedGadgets = false;
         for (Object[] c : selected) {
             String name = (String) c[0];
             String path = (String) c[2];
@@ -342,6 +389,13 @@ public class MainActivity extends Activity {
                 fontsPath = path;
                 continue;
             }
+            // gadgets/ 子目录组件：先建父目录（/data/system/theme/gadgets/）
+            if (name.contains("/")) {
+                String parent = name.substring(0, name.lastIndexOf('/'));
+                sb.append("mkdir -p /data/system/theme/").append(parent).append('\n');
+                deployedGadgets = true;
+            }
+            if (WIDGET_PATTERN.matcher(name).matches()) deployedGadgets = true;
             sb.append("cp '").append(path).append("' /data/system/theme/").append(name).append('\n');
             sb.append("chown system_theme:system_theme /data/system/theme/").append(name).append('\n');
             sb.append("chmod ").append(name.equals("wallpaper") ? "600" : "755")
@@ -369,10 +423,18 @@ public class MainActivity extends Activity {
         if (r.contains("DEPLOY-DONE")) {
             log("✅ 部署完成，已自动备份到 /sdcard/ThemeToolBackup/backup_" + ts);
             if (fontsPath != null) log("字体为实验性部署，建议重启设备后查看效果。");
+            if (deployedGadgets) {
+                log("主题小组件已部署。请前往：\n  桌面长按 → 添加小组件 → 主题组件\n查看已安装内容；也可点「重启桌面」后查看。");
+            }
             log("壁纸如未变化请重启设备；也可点「重启系统界面」。");
         } else {
             log("部署未确认，检查上面输出（多半是 su 未授权）。");
         }
+    }
+
+    private void doRestartLauncher() {
+        String r = execSu("am force-stop com.miui.home");
+        log(r.contains("SU-ERROR") ? "重启桌面失败: " + r : "✅ 桌面（Launcher）已重启，重新进入桌面即可。");
     }
 
     private void doBackup() {

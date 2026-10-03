@@ -50,6 +50,12 @@
         android:layout_height="wrap_content"
         android:text="重启系统界面 (SystemUI)"/>
 
+    <Button
+        android:id="@+id/btn_launcher"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="重启桌面 (Launcher，部署小组件后使用)"/>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
