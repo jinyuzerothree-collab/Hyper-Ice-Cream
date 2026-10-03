@@ -1,42 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
-    android:orientation="vertical"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center">
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_canvas"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"/>
 
     <TextView
-        android:id="@+id/widget_date"
+        android:id="@+id/widget_fallback"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="12sp"
+        android:layout_gravity="center"
+        android:textSize="34sp"
+        android:textStyle="bold"
         android:textColor="#FFFFFF"
         android:shadowColor="#80000000"
-        android:shadowRadius="4"
+        android:shadowRadius="6"
         android:text=""/>
-
-    <LinearLayout
-        android:id="@+id/widget_digits"
-        android:orientation="horizontal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:gravity="center">
-
-        <ImageView android:id="@+id/d0" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-        <ImageView android:id="@+id/d1" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-        <ImageView android:id="@+id/d2" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-        <ImageView android:id="@+id/d3" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-        <ImageView android:id="@+id/d4" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/widget_weather"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="11sp"
-        android:textColor="#FFFFFF"
-        android:shadowColor="#80000000"
-        android:shadowRadius="4"
-        android:text=""/>
-</LinearLayout>
+</FrameLayout>

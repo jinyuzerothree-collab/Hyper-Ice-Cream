@@ -3,7 +3,6 @@ package com.zcode.themetool;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -15,8 +14,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-/** 关于页：1:1 对标 HyperCeiler 关于页层级。
- *  渐变 Hero（图标+名称+版本）→ 设备卡 → 开发者卡 → 菜单卡 → 协议卡 → 译者/语言 → 许可/仓库。 */
+/** 关于页 v2：HyperCeiler 层级 + 整页渐变融合（无分界线）+ 全粗体 + 无图标 + 语言切换。 */
 public class AboutPage {
 
     public static View build(Activity act) {
@@ -25,129 +23,118 @@ public class AboutPage {
 
         ScrollView scroll = new ScrollView(act);
         scroll.setFillViewport(true);
-        LinearLayout root = new LinearLayout(act);
-        root.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(root);
-
-        // ===== Hero：渐变背景 + 图标 + 名称 + 版本 =====
-        LinearLayout hero = new LinearLayout(act);
-        hero.setOrientation(LinearLayout.VERTICAL);
-        hero.setGravity(Gravity.CENTER);
-        hero.setPadding(dp(act, 24), dp(act, 72), dp(act, 24), dp(act, 60));
-        GradientDrawable heroBg = new GradientDrawable(
+        // 整页渐变背景：Hero 与正文自然糅合，无分界线
+        GradientDrawable pageBg = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 night
-                        ? new int[]{0xFF1B2438, 0xFF241B33, 0xFF101622}
-                        : new int[]{0xFFFFC9DE, 0xFFD9C8FF, 0xFFFFE9EE});
-        hero.setBackground(heroBg);
-        root.addView(hero);
+                        ? new int[]{0xFF1B2438, 0xFF241B33, 0xFF0F141F}
+                        : new int[]{0xFFFFD3E2, 0xFFE3D4FF, 0xFFFFEDF0});
+        scroll.setBackground(pageBg);
 
-        ImageView icon = new ImageView(act);
-        icon.setImageResource(R.mipmap.ic_launcher);
-        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(act, 96), dp(act, 96));
-        icon.setLayoutParams(ilp);
-        hero.addView(icon);
+        LinearLayout root = new LinearLayout(act);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(act, 20), dp(act, 64), dp(act, 20), dp(act, 40));
+        scroll.addView(root);
 
+        // ===== Hero：仅文字，粗体居中 =====
         TextView name = new TextView(act);
         name.setText("Hyper Ice Cream");
-        name.setTextSize(30);
+        name.setTextSize(34);
         name.setTypeface(Typeface.DEFAULT_BOLD);
-        name.setTextColor(night ? 0xFFE8D5E0 : 0xFF8C3A5C);
+        name.setLetterSpacing(-0.02f);
+        name.setTextColor(night ? 0xFFF0E2EC : 0xFF7A2F4E);
         name.setGravity(Gravity.CENTER);
-        name.setPadding(0, dp(act, 18), 0, dp(act, 6));
-        hero.addView(name);
+        root.addView(name);
 
         TextView ver = new TextView(act);
         ver.setText(AboutBuild.VERSION_NAME + " | " + L10n.t(act, "release"));
-        ver.setTextSize(14);
-        ver.setTextColor(night ? 0x99FFFFFF : 0x99000000);
+        ver.setTextSize(15);
+        ver.setTypeface(Typeface.DEFAULT_BOLD);
+        ver.setTextColor(night ? 0xAAFFFFFF : 0xAA3A1A28);
         ver.setGravity(Gravity.CENTER);
-        hero.addView(ver);
+        ver.setPadding(0, dp(act, 8), 0, dp(act, 26));
+        root.addView(ver);
 
         LinearLayout body = new LinearLayout(act);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(act, 16), dp(act, 16), dp(act, 16), dp(act, 40));
         root.addView(body);
 
-        // ===== 设备卡片（白底大字，HyperCeiler 式） =====
+        // ===== 设备卡片 =====
         LinearLayout device = whiteCard(act, night);
-        TextView dt = new TextView(act);
-        dt.setText(userName(act) + "的" + marketName(act));
-        dt.setTextSize(22);
-        dt.setTypeface(Typeface.DEFAULT_BOLD);
-        dt.setTextColor(night ? 0xFFEEEEEE : 0xFF111111);
-        dt.setPadding(0, 0, 0, dp(act, 10));
-        device.addView(dt);
+        device.addView(head(act, night, userName(act) + "的" + marketName(act)));
         device.addView(bigRow(act, night, marketName(act), L10n.t(act, "dev_model")));
         device.addView(bigRow(act, night, "Android " + Build.VERSION.RELEASE, L10n.t(act, "android_ver")));
-        device.addView(bigRow(act, night, osVersion(act), L10n.t(act, "os_ver")));
+        device.addView(bigRow(act, night, osVersion(), L10n.t(act, "os_ver")));
         body.addView(cardWrap(act, device));
 
-        // ===== 开发者卡片（头像 + 名称） =====
+        // ===== 开发者卡片 =====
         LinearLayout dev = whiteCard(act, night);
         LinearLayout drow = new LinearLayout(act);
         drow.setOrientation(LinearLayout.HORIZONTAL);
         drow.setGravity(Gravity.CENTER_VERTICAL);
         ImageView av = new ImageView(act);
-        av.setImageBitmap(BitmapFactory.decodeResource(act.getResources(), R.drawable.dev_avatar));
+        try {
+            av.setImageBitmap(BitmapFactory.decodeResource(act.getResources(), R.drawable.dev_avatar));
+        } catch (Throwable ignored) {
+        }
         GradientDrawable avClip = new GradientDrawable();
-        avClip.setCornerRadius(dp(act, 28));
+        avClip.setCornerRadius(dp(act, 30));
         av.setBackground(avClip);
         av.setClipToOutline(true);
-        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(dp(act, 56), dp(act, 56));
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(dp(act, 60), dp(act, 60));
         alp.rightMargin = dp(act, 16);
         av.setLayoutParams(alp);
         drow.addView(av);
         LinearLayout dcol = new LinearLayout(act);
         dcol.setOrientation(LinearLayout.VERTICAL);
-        dcol.addView(txt(act, "Ache | Hyper Ice Cream", 17, true, night ? 0xFFEAEAEA : 0xFF111111, 2));
-        dcol.addView(txt(act, "@" + gitUser(), 13, false, night ? 0x99FFFFFF : 0x99000000, 0));
+        dcol.addView(txt(act, "Ache | Hyper Ice Cream", 18, true, night ? 0xFFF0F0F0 : 0xFF111111, 2));
+        dcol.addView(txt(act, "@" + gitUser(), 13, true, night ? 0xAAFFFFFF : 0xAA333333, 0));
         drow.addView(dcol);
         dev.addView(drow);
         dev.addView(clickRow(act, night, L10n.t(act, "dev") + "  ›", "https://github.com/jinyuzerothree-collab"));
         dev.addView(clickRow(act, night, L10n.t(act, "repo") + "  ›", repoUrl()));
         body.addView(cardWrap(act, dev));
 
-        // ===== 菜单卡（贡献者/官网/翻译/支持） =====
+        // ===== 菜单 =====
         LinearLayout menu = whiteCard(act, night);
-        menu.addView(menuRow(act, night, L10n.t(act, "contributors"), null, "https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream/graphs/contributors"));
+        menu.addView(menuRow(act, night, L10n.t(act, "contributors"), null, repoUrl() + "/graphs/contributors"));
         menu.addView(menuRow(act, night, L10n.t(act, "website"), null, repoUrl()));
-        menu.addView(menuRow(act, night, L10n.t(act, "translate"), L10n.t(act, "translate_sub"), "https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream/issues"));
-        menu.addView(menuRow(act, night, L10n.t(act, "support"), L10n.t(act, "support_sub"), "https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream/issues"));
+        menu.addView(menuRow(act, night, L10n.t(act, "translate"), L10n.t(act, "translate_sub"), repoUrl() + "/issues"));
+        menu.addView(menuRow(act, night, L10n.t(act, "support"), L10n.t(act, "support_sub"), repoUrl() + "/issues"));
         body.addView(cardWrap(act, menu));
 
-        // ===== 协议卡 =====
+        // ===== 协议 =====
         LinearLayout legal = whiteCard(act, night);
-        legal.addView(menuRow(act, night, L10n.t(act, "terms"), null, "https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream/blob/main/LICENSE"));
-        legal.addView(menuRow(act, night, L10n.t(act, "privacy"), null, "https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream"));
+        legal.addView(menuRow(act, night, L10n.t(act, "terms"), null, repoUrl() + "/blob/main/LICENSE"));
+        legal.addView(menuRow(act, night, L10n.t(act, "privacy"), null, repoUrl()));
         body.addView(cardWrap(act, legal));
 
-        // ===== 语言切换 =====
-        TextView llabel = txt(act, L10n.t(act, "language"), 13, false,
-                night ? 0x99FFFFFF : 0x99000000, 0);
-        llabel.setPadding(dp(act, 8), dp(act, 14), 0, dp(act, 6));
-        body.addView(llabel);
+        // ===== 语言 =====
+        body.addView(sectionLabel(act, night, L10n.t(act, "language")));
         LinearLayout lang = whiteCard(act, night);
         lang.addView(langRow(act, night));
         body.addView(cardWrap(act, lang));
 
         // ===== 译者 =====
-        TextView trlabel = txt(act, L10n.t(act, "translator"), 13, false,
-                night ? 0x99FFFFFF : 0x99000000, 0);
-        trlabel.setPadding(dp(act, 8), dp(act, 14), 0, dp(act, 6));
-        body.addView(trlabel);
+        body.addView(sectionLabel(act, night, L10n.t(act, "translator")));
         LinearLayout tr = whiteCard(act, night);
-        tr.addView(valueRow(act, night, "Hyper Ice Cream " + L10n.t(act, "official"), L10n.langName(L10n.get()), null));
+        tr.addView(valueRow(act, night, "Hyper Ice Cream " + L10n.t(act, "official"), L10n.langName(L10n.get())));
         body.addView(cardWrap(act, tr));
 
-        // ===== 许可 / 仓库 / 更新日志 =====
+        // ===== 杂项 =====
         LinearLayout misc = whiteCard(act, night);
-        misc.addView(clickRow(act, night, L10n.t(act, "license") + " (MIT)  ›", "https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream/blob/main/LICENSE"));
-        misc.addView(clickRow(act, night, L10n.t(act, "changelog") + "  ›", "https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream/blob/main/CHANGELOG.md"));
+        misc.addView(menuRow(act, night, L10n.t(act, "license") + " (MIT)", null, repoUrl() + "/blob/main/LICENSE"));
+        misc.addView(menuRow(act, night, L10n.t(act, "changelog"), null, repoUrl() + "/blob/main/CHANGELOG.md"));
         body.addView(cardWrap(act, misc));
 
-        body.addView(txt(act, "Made with Hyper Ice Cream", 11, false,
-                night ? 0x55FFFFFF : 0x55000000, 0));
+        TextView foot = txt(act, "Made with Hyper Ice Cream", 12, true,
+                night ? 0x77FFFFFF : 0x77000000, 0);
+        foot.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams flp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        flp.topMargin = dp(act, 22);
+        foot.setLayoutParams(flp);
+        body.addView(foot);
         return scroll;
     }
 
@@ -169,7 +156,7 @@ public class AboutPage {
         }
     }
 
-    private static String osVersion(Activity act) {
+    private static String osVersion() {
         try {
             Process p = Runtime.getRuntime().exec(new String[]{"getprop", "ro.mi.os.version.name"});
             byte[] b = new byte[128];
@@ -197,7 +184,7 @@ public class AboutPage {
         c.setPadding(dp(act, 20), dp(act, 18), dp(act, 20), dp(act, 18));
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(act, 24));
-        bg.setColor(night ? 0xF2151515 : 0xFAFFFFFF);
+        bg.setColor(night ? 0xF2202028 : 0xFAFFFFFF);
         c.setBackground(bg);
         return c;
     }
@@ -214,27 +201,47 @@ public class AboutPage {
         TextView t = new TextView(act);
         t.setText(s);
         t.setTextSize(sp);
-        t.setTypeface(bold ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+        t.setTypeface(bold ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT_BOLD); // 全粗体
         t.setTextColor(color);
         t.setPadding(0, 0, 0, dp(act, padBottomDp));
         return t;
     }
 
-    /** HyperCeiler 式大字行：主值大字加粗，标签小字浅色 */
+    private static TextView head(Activity act, boolean night, String s) {
+        TextView t = new TextView(act);
+        t.setText(s);
+        t.setTextSize(24);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTextColor(night ? 0xFFF0F0F0 : 0xFF111111);
+        t.setPadding(0, 0, 0, dp(act, 12));
+        return t;
+    }
+
+    private static TextView sectionLabel(Activity act, boolean night, String s) {
+        TextView t = new TextView(act);
+        t.setText(s);
+        t.setTextSize(14);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTextColor(night ? 0xCCFFFFFF : 0xCC222222);
+        t.setPadding(dp(act, 8), dp(act, 16), 0, dp(act, 6));
+        return t;
+    }
+
     private static View bigRow(Activity act, boolean night, String value, String label) {
         LinearLayout v = new LinearLayout(act);
         v.setOrientation(LinearLayout.VERTICAL);
         v.setPadding(0, dp(act, 10), 0, dp(act, 10));
         TextView tv = new TextView(act);
         tv.setText(value);
-        tv.setTextSize(19);
+        tv.setTextSize(20);
         tv.setTypeface(Typeface.DEFAULT_BOLD);
-        tv.setTextColor(night ? 0xFFEAEAEA : 0xFF111111);
+        tv.setTextColor(night ? 0xFFF0F0F0 : 0xFF111111);
         v.addView(tv);
         TextView tl = new TextView(act);
         tl.setText(label);
-        tl.setTextSize(12);
-        tl.setTextColor(night ? 0x99FFFFFF : 0x99000000);
+        tl.setTextSize(13);
+        tl.setTypeface(Typeface.DEFAULT_BOLD);
+        tl.setTextColor(night ? 0xAAFFFFFF : 0xAA333333);
         v.addView(tl);
         return v;
     }
@@ -243,19 +250,20 @@ public class AboutPage {
         LinearLayout r = new LinearLayout(act);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setPadding(0, dp(act, 12), 0, dp(act, 12));
+        r.setPadding(0, dp(act, 13), 0, dp(act, 13));
         LinearLayout col = new LinearLayout(act);
         col.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         col.setLayoutParams(clp);
-        col.addView(txt(act, label, 16, true, night ? 0xFFEAEAEA : 0xFF111111, sub == null ? 0 : 2));
-        if (sub != null) col.addView(txt(act, sub, 12, false, night ? 0x99FFFFFF : 0x99000000, 0));
+        col.addView(txt(act, label, 16, true, night ? 0xFFF0F0F0 : 0xFF111111, sub == null ? 0 : 2));
+        if (sub != null) col.addView(txt(act, sub, 12, true, night ? 0xAAFFFFFF : 0xAA333333, 0));
         r.addView(col);
         TextView chev = new TextView(act);
         chev.setText("›");
-        chev.setTextSize(18);
-        chev.setTextColor(night ? 0x66FFFFFF : 0x66000000);
+        chev.setTextSize(20);
+        chev.setTypeface(Typeface.DEFAULT_BOLD);
+        chev.setTextColor(night ? 0x88FFFFFF : 0x88000000);
         r.addView(chev);
         if (url != null) {
             r.setOnClickListener(v -> {
@@ -272,6 +280,7 @@ public class AboutPage {
         TextView t = new TextView(act);
         t.setText(label);
         t.setTextSize(14);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setPadding(0, dp(act, 12), 0, dp(act, 12));
         t.setTextColor(night ? 0xFFB8C4FF : 0xFF3D5AFE);
         t.setOnClickListener(v -> {
@@ -283,7 +292,6 @@ public class AboutPage {
         return t;
     }
 
-    /** 语言切换行：点击弹三选 */
     private static View langRow(final Activity act, boolean night) {
         LinearLayout r = new LinearLayout(act);
         r.setOrientation(LinearLayout.HORIZONTAL);
@@ -293,7 +301,7 @@ public class AboutPage {
         l.setText(L10n.t(act, "language"));
         l.setTextSize(16);
         l.setTypeface(Typeface.DEFAULT_BOLD);
-        l.setTextColor(night ? 0xFFEAEAEA : 0xFF111111);
+        l.setTextColor(night ? 0xFFF0F0F0 : 0xFF111111);
         LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         l.setLayoutParams(llp);
@@ -301,13 +309,15 @@ public class AboutPage {
         TextView cur = new TextView(act);
         cur.setText(L10n.langName(L10n.get()));
         cur.setTextSize(13);
-        cur.setTextColor(night ? 0x99FFFFFF : 0x99000000);
+        cur.setTypeface(Typeface.DEFAULT_BOLD);
+        cur.setTextColor(night ? 0xAAFFFFFF : 0xAA333333);
         cur.setPadding(0, 0, dp(act, 8), 0);
         r.addView(cur);
         TextView chev = new TextView(act);
         chev.setText("›");
-        chev.setTextSize(18);
-        chev.setTextColor(night ? 0x66FFFFFF : 0x66000000);
+        chev.setTextSize(20);
+        chev.setTypeface(Typeface.DEFAULT_BOLD);
+        chev.setTextColor(night ? 0x88FFFFFF : 0x88000000);
         r.addView(chev);
         r.setOnClickListener(v -> {
             final String[] opts = {L10n.ZH_HANS, L10n.ZH_HANT, L10n.EN};
@@ -323,7 +333,7 @@ public class AboutPage {
         return r;
     }
 
-    private static View valueRow(Activity act, boolean night, String label, String value, String url) {
+    private static View valueRow(Activity act, boolean night, String label, String value) {
         LinearLayout r = new LinearLayout(act);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
@@ -332,7 +342,7 @@ public class AboutPage {
         l.setText(label);
         l.setTextSize(16);
         l.setTypeface(Typeface.DEFAULT_BOLD);
-        l.setTextColor(night ? 0xFFEAEAEA : 0xFF111111);
+        l.setTextColor(night ? 0xFFF0F0F0 : 0xFF111111);
         LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         l.setLayoutParams(llp);
@@ -340,7 +350,8 @@ public class AboutPage {
         TextView c = new TextView(act);
         c.setText(value + "  ›");
         c.setTextSize(13);
-        c.setTextColor(night ? 0x99FFFFFF : 0x99000000);
+        c.setTypeface(Typeface.DEFAULT_BOLD);
+        c.setTextColor(night ? 0xAAFFFFFF : 0xAA333333);
         r.addView(c);
         return r;
     }
@@ -350,6 +361,6 @@ public class AboutPage {
     }
 
     public static class AboutBuild {
-        public static final String VERSION_NAME = "2.1";
+        public static final String VERSION_NAME = "2.2";
     }
 }

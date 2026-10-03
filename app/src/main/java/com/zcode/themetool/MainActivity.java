@@ -924,20 +924,20 @@ public class MainActivity extends Activity {
         return false;
     }
 
-    /** 部署时钟组件后：把数字贴图导出到应用私有目录供 Hyper Ice Cream Widget 使用 */
+    /** 部署时钟组件后：把数字贴图与 manifest（含元素间距比例）导出到应用私有目录供 Hyper Widget 使用 */
     private void exportWidgetAssets() {
         try {
             String uid = getPackageManager().getPackageInfo(getPackageName(), 0).applicationInfo.uid + "";
             String script = "mkdir -p /data/data/com.zcode.themetool/files/widget_assets/clock_2x4\n"
                     + "cd /data/data/com.zcode.themetool/files/widget_assets/clock_2x4\n"
-                    + "unzip -o /data/system/theme/clock_2x4 'src/num/*' >/dev/null 2>&1\n"
+                    + "unzip -o /data/system/theme/clock_2x4 'src/num/*' 'manifest.xml' >/dev/null 2>&1\n"
                     + "chown -R " + uid + ":" + uid + " /data/data/com.zcode.themetool/files/widget_assets\n"
                     + "chmod -R 755 /data/data/com.zcode.themetool/files/widget_assets\n"
                     + "echo WIDGET-ASSETS-OK\n";
             String r = execSu(script);
             if (r.contains("WIDGET-ASSETS-OK")) {
                 HyperWidgetProvider.renderAll(this);
-                log("Hyper Ice Cream Widget 素材已就绪。");
+                log("Hyper Ice Cream Widget 素材（贴图+布局比例）已就绪：桌面添加后可拉至任意尺寸，按时钟原始比例复现。");
             }
         } catch (Throwable t) {
             log("Widget 素材导出失败（Widget 将用字体降级显示）: " + t);
