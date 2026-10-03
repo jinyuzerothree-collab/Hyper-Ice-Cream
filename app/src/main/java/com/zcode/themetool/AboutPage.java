@@ -148,7 +148,7 @@ public class AboutPage {
         p.setLetterSpacing(-0.01f);
         p.setColor(night ? 0xFFF0E2EC : 0xFF7A2F4E);
         p.setStyle(android.graphics.Paint.Style.FILL_AND_STROKE);
-        p.setStrokeWidth(2.2f * density); // 额外描边厚度 = 更粗
+        p.setStrokeWidth(1.1f * density); // 描边减细：粗而不肿
         float tw = p.measureText(text);
         android.graphics.Paint.FontMetrics fm = p.getFontMetrics();
         int w = (int) (tw + 8 * density);
