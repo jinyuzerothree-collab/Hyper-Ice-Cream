@@ -175,25 +175,22 @@ public class MainActivity extends Activity {
         root.setBackground(bg);
     }
 
-    /** 旧组件白名单管理：列出带小组件接收器的三方应用，勾选写入白名单文件 */
+    /** 旧组件白名单管理：列出全部小组件提供者（AppWidgetManager 通道，与 HyperStack 同源） */
     private void showWhitelistDialog() {
-        android.content.Intent q = new android.content.Intent(
-                "android.appwidget.action.APPWIDGET_UPDATE");
-        q.setPackage(null);
-        java.util.List<android.content.pm.ResolveInfo> ris =
-                getPackageManager().queryBroadcastReceivers(q,
-                        android.content.pm.PackageManager.GET_META_DATA);
         java.util.LinkedHashMap<String, String> pkgs = new java.util.LinkedHashMap<>();
-        if (ris != null) {
-            for (android.content.pm.ResolveInfo ri : ris) {
-                if (ri.activityInfo == null) continue;
-                String p = ri.activityInfo.packageName;
-                if (p.equals(getPackageName())) continue; // 自身已预置
-                String label = (String) getPackageManager().getApplicationLabel(
-                        ri.activityInfo.applicationInfo == null
-                                ? getApplicationInfo() : ri.activityInfo.applicationInfo);
-                pkgs.put(p, label + " (" + p + ")");
+        android.appwidget.AppWidgetManager awm = android.appwidget.AppWidgetManager.getInstance(this);
+        for (android.appwidget.AppWidgetProviderInfo info : awm.getInstalledProviders()) {
+            if (info.provider == null) continue;
+            String p = info.provider.getPackageName();
+            if (p.equals(getPackageName())) continue; // 自身已预置
+            CharSequence label;
+            try {
+                label = getPackageManager().getApplicationLabel(
+                        getPackageManager().getApplicationInfo(p, 0));
+            } catch (Throwable ignored) {
+                label = p;
             }
+            pkgs.put(p, label + " (" + p + ")");
         }
         // 当前白名单
         java.util.Set<String> current = new java.util.HashSet<>();
