@@ -1,30 +1,28 @@
 # NEXT_TASK.md — 下一阶段任务清单
 
-> **v2.1 已发布**。设备: 无线调试（端口变化找用户要）；Root = KernelSU su。构建 `python C:\Users\雪糕\.zcode\workspace\default\build_tt.py`；网络走代理 7897；gh 在 C:\abuild\gh\bin\gh.exe。
-> ⚠️ 用户正在使用平板时禁止远程 input tap 干扰（v2.1 自测教训）。
+> **v2.2 已发布**。设备: 无线调试（端口变化找用户要）；Root = KernelSU su。构建 `python C:\Users\雪糕\.zcode\workspace\default\build_tt.py`；网络走代理 7897。
+> ⚠️ 用户正在使用平板时禁止远程 input tap 干扰。Java 字段初始化器禁止引用 this/Context（v2.1 闪退教训）。
 
-## 1. 【P0 待用户验收 v2.1】
-- [ ] 顶部黑条已移除（NoActionBar）
-- [ ] 关于页 HyperCeiler 式（渐变 Hero + Ache的设备卡 + 开发者头像卡 + 菜单列表 + 译者）
-- [ ] 语言切换（关于页 → 语言 → 简/繁/EN 即时生效）
-- [ ] Dock 左右滑动切页 + 激活态玻璃覆盖层（非紫色实色）
-- [ ] 巧克力雪糕科技风图标
-- [ ] 小组件部署时宽×高选择器（写入 description.xml size）
-- [ ] gadgets 缩放手柄（注入 size 后是否出现——Plan A 终验）
+## 1. 【P0 新功能——已调研，下轮实现】DockTweaks 模块（Dock 三常驻图标）
+- 〔取证〕hyper_launcher_app Dock 是 **Flutter 渲染**：三常驻图标 = com.miui.home APK 内 flutter_assets 资源（ic_dock_xiaoai_*.svg / icon_super_xiaoai_*.webp / search_* / resident 标记）
+- 方案: LSPosed 模块 hook `AssetManager.open(String)`（com.miui.home 进程），对匹配 flutter_assets 的 dock 图标资源流重定向:
+  - 隐藏模式 → 返回全透明 webp/svg 同名资源
+  - 自定义模式 → 返回用户选择的图片（可带圆角透明边 → 实现"圆角改变"观感）
+- 模块名: com.hypericecream.docktweaks；UI 三开关 + 自定义图选择；用既有 hooksrc 工具链（javac/r8/aapt2/签名，注意 stub 只反射调用）
+- 回归风险: launcher 重启后生效；资源名列表按设备 dump 确认
 
-## 2. 【P1】用户上传的头像 = Downloads/mmexport1791026326501.jpg 已内置；若用户换头像 → 替换 res/drawable-nodpi/dev_avatar.jpg 重构建
+## 2. 【P0 待用户验收 v2.2】
+- [ ] 关于页 v2：无图标、纯粗体文字、整页渐变无分界线
+- [ ] HyperWidget v2：部署时钟后桌面添加「Hyper Ice Cream」小部件，拉到 2×4——应按时钟原始比例复现（日期/时间位置同主题）
+- [ ] 部署时钟时宽×高选择器弹窗
+- [ ] 闪烁/闪退确认消失
 
-## 3. 【P1】样本库扩充
-- [ ] 超级液态米果.mtz：同为顶层 clock_2x4 容器（71KB，含 preview_clock_2x4_0.png）——部署/素材提取流程通用，可作为 Widget 引擎第二素材源
-- [ ] 用户 Downloads 里出现系统界面组件 18.2.1.88.0 V2.1/V3.0/V3.1_fix（新插件线！用户在自测新修改版）——如装了 V3.x 且出问题，按 v1.3 同法排查（缺类/接口不匹配）
+## 3. 【P1】
+- [ ] HyperWidget 天气接入（主题 weather 贴图 + content://weather 查询）
+- [ ] 多字体换挡（type_0~11）
+- [ ] 索引真实条目回填 + 下载回归
+- [ ] Compose/MIUIX 迁移评估（真 blur）
 
-## 4. 【P2】
-- [ ] HyperWidget 分钟刷新 + 天气接入 + 多字体换挡
-- [ ] 关于页用户名可编辑入口
-- [ ] Compose/MIUIX 迁移评估（真 blur 前提）
-- [ ] 开场引导动画（用户暂缓，素材齐后做）
-
-## 禁止事项（用户约定）
-- 不做: 长按菜单移植、KSU 挂载方案、自建服务器、P2P、硬编码组件尺寸
-- 用户正在使用设备时禁止远程点击/截屏干扰
-- 状态变更先说明；不删用户文件；部署前必须自动备份
+## 禁止事项
+- 不做: 长按菜单移植、KSU 挂载、自建服务器、P2P、硬编码尺寸
+- 用户使用设备时禁止远程点击；部署前必须自动备份
