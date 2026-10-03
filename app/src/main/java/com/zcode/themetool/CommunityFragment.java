@@ -103,6 +103,14 @@ public class CommunityFragment {
                 }
                 try {
                     JSONArray arr = new JSONArray(fBody);
+                    // 缓存索引供 sha256 去重查询
+                    try {
+                        FileOutputStream fo = new FileOutputStream(
+                                new File(host.activity().getFilesDir(), "index_cache.json"));
+                        fo.write(fBody.getBytes(StandardCharsets.UTF_8));
+                        fo.close();
+                    } catch (Throwable ignored) {
+                    }
                     listBox.removeAllViews();
                     for (int i = 0; i < arr.length(); i++) addEntryCard(arr.getJSONObject(i));
                     post(s -> s.setText("✅ 已加载 " + arr.length() + " 个主题（"

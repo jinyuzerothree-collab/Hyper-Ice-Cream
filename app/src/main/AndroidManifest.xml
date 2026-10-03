@@ -1,17 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.zcode.themetool"
-    android:versionCode="5"
-    android:versionName="1.4">
+    android:versionCode="7"
+    android:versionName="2.0">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
-    <application android:label="主题直装" android:allowBackup="false" android:usesCleartextTraffic="false">
+    <application android:label="Hyper Ice Cream" android:icon="@mipmap/ic_launcher" android:allowBackup="false" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <receiver android:name=".HyperWidgetProvider" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="android.appwidget.action.APPWIDGET_OPTIONS_CHANGED"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/hyper_widget_info"/>
+        </receiver>
     </application>
 </manifest>

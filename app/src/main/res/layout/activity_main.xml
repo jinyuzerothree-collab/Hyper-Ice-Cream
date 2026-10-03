@@ -22,7 +22,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="主题直装"
+                android:text="Hyper Ice Cream"
                 android:textSize="26sp"
                 android:textStyle="bold"
                 android:layout_marginBottom="2dp"/>
@@ -30,7 +30,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="将主题组件直接部署到系统主题目录"
+                android:text="HyperOS 平板主题增强工具"
                 android:textSize="12sp"
                 android:layout_marginBottom="16dp"/>
 
@@ -207,6 +207,22 @@
         </LinearLayout>
     </ScrollView>
 
+    <!-- ===== 页面 4: 关于 ===== -->
+    <ScrollView
+        android:id="@+id/page_about"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:visibility="gone"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:id="@+id/about_container"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </ScrollView>
+
     <!-- ===== Liquid Glass 悬浮底栏 ===== -->
     <LinearLayout
         android:id="@+id/dock"
@@ -215,8 +231,8 @@
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="22dp"
         android:orientation="horizontal"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp"
         android:elevation="20dp">
 
         <TextView
@@ -224,8 +240,8 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:paddingLeft="22dp"
-            android:paddingRight="22dp"
+            android:paddingLeft="18dp"
+            android:paddingRight="18dp"
             android:text="部署"
             android:textSize="15sp"
             android:textStyle="bold"/>
@@ -235,8 +251,8 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:paddingLeft="22dp"
-            android:paddingRight="22dp"
+            android:paddingLeft="18dp"
+            android:paddingRight="18dp"
             android:text="社区"
             android:textSize="15sp"/>
 
@@ -245,9 +261,19 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:paddingLeft="22dp"
-            android:paddingRight="22dp"
+            android:paddingLeft="18dp"
+            android:paddingRight="18dp"
             android:text="工具"
+            android:textSize="15sp"/>
+
+        <TextView
+            android:id="@+id/tab_about"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingLeft="18dp"
+            android:paddingRight="18dp"
+            android:text="关于"
             android:textSize="15sp"/>
     </LinearLayout>
 </FrameLayout>

@@ -1,6 +1,26 @@
 # 更新日志
 
-本文件记录主题直装工具的功能变更。格式参考 Keep a Changelog。
+本文件记录 Hyper Ice Cream（原 主题直装）的功能变更。格式参考 Keep a Changelog。
+
+## [2.0] - 2026-10-03
+
+### 变更
+- **项目更名**: 主题直装 → **Hyper Ice Cream**（HyperOS 平板主题增强工具）；全新像素风应用图标
+- **UI 全面重构**: 部署/社区/工具/关于 四页面架构；Liquid Glass 悬浮底栏（悬浮留白、大圆角、半透明玻璃、高光、阴影、点击缩放动画、页面转场）；Material You 动态取色（Dock 激活色跟随壁纸主色）
+- **关于页**: 应用头 + 设备信息卡片（用户名 的 设备名 / 型号 / Android / HyperOS）+ 开发者卡片 + 链接列表（更新日志/许可/收录规范/Issues/Discussions）
+
+### 新增
+- **Hyper Ice Cream Widget**（Plan B v1）: 独立于 MIUI Gadget 的系统时钟小组件——支持桌面内自由缩放（小/宽/大三桶自动重排版而非拉伸）；部署主题时钟后自动复用其数字贴图；无素材时字体降级
+- **Gadget 缩放根因修复**: 部署时自动为缺失描述文件的组件容器注入标准尺寸声明（category/size 从组件名解析）——修复平板端组件被识别为固定尺寸的问题
+- **下载任务管理器**: 社区下载进度条/百分比/速度/直连镜像自动切换/三阶段提示/失败明示/sha256 校验
+- **贡献去重**: 社区下载路径登记 + sha256 与索引精确比对——社区主题不再重复贡献；本地修改过的主题仍可贡献
+- 索引缓存（files/index_cache.json）
+
+### 修复
+- 主界面内容超屏导致部署按钮不可达（整页可滚动）
+
+### 技术备注
+- HyperOS 4 运行时缺 WindowManager.LayoutParams.blurBehindRadius 字段（实测 NoSuchFieldException）→ 窗口级背景模糊不可用，Dock 采用半透明玻璃回退；真 blur 待 Compose/MIUIX 迁移评估
 
 ## [1.5] - 2026-10-03
 

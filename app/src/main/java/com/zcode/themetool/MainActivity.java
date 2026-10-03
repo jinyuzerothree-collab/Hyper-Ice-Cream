@@ -39,6 +39,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
+import org.json.JSONArray;
 
 public class MainActivity extends Activity {
     private static final int REQ_PICK = 41;
@@ -64,7 +65,7 @@ public class MainActivity extends Activity {
     // 页面与底栏
     private ScrollView pageHome, pageCommunity, pageTools;
     private View dock;
-    private TextView tabHome, tabCommunity, tabTools;
+    private TextView tabHome, tabCommunity, tabTools, tabAbout;
     private int accentColor = 0xFF3D7EFF;
     private CommunityFragment community;
     private String pendingCommunityFile; // 社区下载主题的路径 → 禁止再次贡献
@@ -145,11 +146,118 @@ public class MainActivity extends Activity {
         tabHome = findViewById(R.id.tab_home);
         tabCommunity = findViewById(R.id.tab_community);
         tabTools = findViewById(R.id.tab_tools);
+        tabAbout = findViewById(R.id.tab_about);
         tabHome.setOnClickListener(v -> switchPage(0));
         tabCommunity.setOnClickListener(v -> switchPage(1));
         tabTools.setOnClickListener(v -> switchPage(2));
+        tabAbout.setOnClickListener(v -> switchPage(3));
         applyDockStyle();
         switchPage(0);
+        attachGlassDock(); // 真·液态玻璃：独立窗口 + blurBehind（API31+），失败则用内嵌 Dock
+    }
+
+    @Override
+    protected void onDestroy() {
+        try {
+            if (glassDockView != null && glassDockParent != null) {
+                glassDockParent.removeView(glassDockView);
+                glassDockView = null;
+            }
+        } catch (Throwable ignored) {
+        }
+        super.onDestroy();
+    }
+
+    // ---------- 真·液态玻璃 Dock（独立窗口 + FLAG_BLUR_BEHIND 实时背景模糊） ----------
+    private LinearLayout glassDockView;
+    private android.view.WindowManager glassDockParent;
+
+    private void attachGlassDock() {
+        try {
+            if (Build.VERSION.SDK_INT < 31) return; // blurBehind 需要 S+
+            LinearLayout dockView = new LinearLayout(this);
+            dockView.setOrientation(LinearLayout.HORIZONTAL);
+            dockView.setPadding(dp(8), 0, dp(8), 0);
+            GradientDrawable glass = new GradientDrawable();
+            glass.setCornerRadius(dp(30));
+            glass.setColor(isNight() ? 0x66141414 : 0x66F5F7FA); // 更通透：模糊由系统提供
+            glass.setStroke((int) dp(1), isNight() ? 0x30FFFFFF : 0x50FFFFFF);
+            dockView.setBackground(glass);
+            dockView.setElevation(dp(18));
+            dockView.setClickable(true);
+
+            android.view.WindowManager.LayoutParams lp = new android.view.WindowManager.LayoutParams(
+                    android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                    (int) dp(56),
+                    android.view.WindowManager.LayoutParams.TYPE_APPLICATION_PANEL,
+                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND,
+                    android.graphics.PixelFormat.TRANSLUCENT);
+            lp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL;
+            lp.y = (int) dp(22);
+            try {
+                // blurBehindRadius 在部分 android.jar 缺失，反射设置（API31+）
+                java.lang.reflect.Field f = lp.getClass().getField("blurBehindRadius");
+                f.set(lp, (int) dp(28));
+                lp.flags |= android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
+            } catch (Throwable t) {
+                log("系统不支持窗口背景模糊，Dock 将以通透玻璃显示: " + t.getClass().getSimpleName());
+            }
+            lp.windowAnimations = android.R.style.Animation_Dialog;
+
+            String[] labels = {"部署", "社区", "工具", "关于"};
+            for (int i = 0; i < labels.length; i++) {
+                final int idx = i;
+                TextView t = new TextView(this);
+                t.setText(labels[i]);
+                t.setTextSize(15);
+                t.setGravity(android.view.Gravity.CENTER);
+                t.setPadding(dp(18), 0, dp(18), 0);
+                t.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT));
+                t.setOnClickListener(v -> {
+                    v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(60)
+                            .withEndAction(() -> v.animate().scaleX(1f).scaleY(1f).setDuration(90).start()).start();
+                    runOnUiThread(() -> switchPage(idx));
+                });
+                dockView.addView(t);
+                glassTabs.add(t);
+            }
+            glassDockParent = getWindowManager();
+            getWindow().getDecorView().post(() -> {
+                try {
+                    glassDockParent.addView(dockView, lp);
+                    glassDockView = dockView;
+                    findViewById(R.id.dock).setVisibility(View.GONE);
+                    styleGlassTabs(0);
+                } catch (Throwable t) {
+                    log("液态玻璃 Dock 初始化回退: " + t);
+                }
+            });
+        } catch (Throwable t) {
+            log("液态玻璃 Dock 不可用，使用内嵌 Dock: " + t);
+        }
+    }
+
+    private final List<TextView> glassTabs = new ArrayList<>();
+
+    private void styleGlassTabs(int active) {
+        if (glassDockView == null) return;
+        for (int i = 0; i < glassTabs.size(); i++) {
+            TextView t = glassTabs.get(i);
+            if (i == active) {
+                GradientDrawable pill = new GradientDrawable();
+                pill.setCornerRadius(dp(24));
+                pill.setColor(accentColor);
+                t.setBackground(pill);
+                t.setTextColor(Color.WHITE);
+                t.setTypeface(Typeface.DEFAULT_BOLD);
+            } else {
+                t.setBackground(null);
+                t.setTextColor(isNight() ? 0xE6FFFFFF : 0xE6111111);
+                t.setTypeface(Typeface.DEFAULT);
+            }
+        }
     }
 
     // ---------- 动态取色（Material You 近似） ----------
@@ -220,25 +328,36 @@ public class MainActivity extends Activity {
         }
     }
 
-    private float dp(int v) {
-        return v * getResources().getDisplayMetrics().density;
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density);
     }
 
     private void switchPage(int idx) {
         if (idx == 1) openCommunity(); // 懒构建 + 每次进入刷新
+        if (idx == 3 && aboutBuilt == false) {
+            ((LinearLayout) findViewById(R.id.about_container)).addView(AboutPage.build(this));
+            aboutBuilt = true;
+        }
         pageHome.setVisibility(idx == 0 ? View.VISIBLE : View.GONE);
         pageCommunity.setVisibility(idx == 1 ? View.VISIBLE : View.GONE);
         pageTools.setVisibility(idx == 2 ? View.VISIBLE : View.GONE);
+        findViewById(R.id.page_about).setVisibility(idx == 3 ? View.VISIBLE : View.GONE);
         styleTab(tabHome, idx == 0);
         styleTab(tabCommunity, idx == 1);
         styleTab(tabTools, idx == 2);
-        View target = idx == 0 ? pageHome : (idx == 1 ? pageCommunity : pageTools);
+        styleTab(tabAbout, idx == 3);
+        styleGlassTabs(idx);
+        View target = idx == 0 ? pageHome : (idx == 1 ? pageCommunity
+                : (idx == 2 ? pageTools : findViewById(R.id.page_about)));
         target.setAlpha(0f);
         target.animate().alpha(1f).setDuration(180).start();
         // 轻微弹性反馈
-        dock.animate().scaleX(0.96f).scaleY(0.96f).setDuration(70)
-                .withEndAction(() -> dock.animate().scaleX(1f).scaleY(1f).setDuration(90).start()).start();
+        View bar = glassDockView != null ? glassDockView : dock;
+        bar.animate().scaleX(0.96f).scaleY(0.96f).setDuration(70)
+                .withEndAction(() -> bar.animate().scaleX(1f).scaleY(1f).setDuration(90).start()).start();
     }
+
+    private boolean aboutBuilt = false;
 
     // ---------- 内置文件浏览器 ----------
     private void showBrowser() {
@@ -621,11 +740,17 @@ public class MainActivity extends Activity {
         if (r.contains("DEPLOY-DONE")) {
             log("✅ 部署完成，已自动备份到 /sdcard/ThemeToolBackup/backup_" + ts);
             if (deployedGadgets) {
-                log("主题小组件已部署（含标准尺寸声明）。请前往：\n  桌面长按 → 添加小组件\n添加后长按组件可拖拽调整尺寸。");
+                exportWidgetAssets();
+                log("主题小组件已部署（含标准尺寸声明）。桌面长按 → 添加小组件；\n另可用「Hyper Ice Cream」系统小组件（自由缩放多尺寸）。");
             }
             log("壁纸如未变化请重启设备；工具页可一键重启 SystemUI/Launcher。");
+            // 贡献去重：社区下载路径 OR sha256 与社区索引一致 → 不询问
             boolean isCommunity = pendingCommunityFile != null
                     && pendingCommunityFile.equals(lastPicked.getAbsolutePath());
+            if (!isCommunity && lastMeta != null && communitySha256Exists(lastMeta.sha256)) {
+                isCommunity = true;
+                log("（与社区已有主题 sha256 一致，不再贡献）");
+            }
             if (!isCommunity && lastMeta != null) {
                 new AlertDialog.Builder(this)
                         .setTitle("分享主题给社区？")
@@ -633,12 +758,48 @@ public class MainActivity extends Activity {
                         .setNegativeButton("取消", null)
                         .setPositiveButton("分享", (d, w) -> askContributionInfo())
                         .show();
-            } else if (isCommunity) {
+            } else if (isCommunity && pendingCommunityFile != null) {
                 log("（该主题来自社区下载，不再重复贡献）");
                 pendingCommunityFile = null;
             }
         } else {
             log("部署未确认，检查上面输出（多半是 su 未授权）。");
+        }
+    }
+
+    /** sha256 去重：与社区索引缓存比对（精确哈希匹配 = 同一包，不询问贡献） */
+    private boolean communitySha256Exists(String sha) {
+        if (sha == null || sha.equals("未知") || sha.length() < 20) return false;
+        try {
+            File cache = new File(getFilesDir(), "index_cache.json");
+            if (!cache.isFile()) return false;
+            JSONArray arr = new JSONArray(new String(readAll(new FileInputStream(cache)), "UTF-8"));
+            for (int i = 0; i < arr.length(); i++) {
+                String s = arr.getJSONObject(i).optString("sha256", "");
+                if (!s.isEmpty() && s.equalsIgnoreCase(sha)) return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    /** 部署时钟组件后：把数字贴图导出到应用私有目录供 Hyper Ice Cream Widget 使用 */
+    private void exportWidgetAssets() {
+        try {
+            String uid = getPackageManager().getPackageInfo(getPackageName(), 0).applicationInfo.uid + "";
+            String script = "mkdir -p /data/data/com.zcode.themetool/files/widget_assets/clock_2x4\n"
+                    + "cd /data/data/com.zcode.themetool/files/widget_assets/clock_2x4\n"
+                    + "unzip -o /data/system/theme/clock_2x4 'src/num/*' >/dev/null 2>&1\n"
+                    + "chown -R " + uid + ":" + uid + " /data/data/com.zcode.themetool/files/widget_assets\n"
+                    + "chmod -R 755 /data/data/com.zcode.themetool/files/widget_assets\n"
+                    + "echo WIDGET-ASSETS-OK\n";
+            String r = execSu(script);
+            if (r.contains("WIDGET-ASSETS-OK")) {
+                HyperWidgetProvider.renderAll(this);
+                log("Hyper Ice Cream Widget 素材已就绪。");
+            }
+        } catch (Throwable t) {
+            log("Widget 素材导出失败（Widget 将用字体降级显示）: " + t);
         }
     }
 
