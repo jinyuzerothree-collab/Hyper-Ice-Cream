@@ -165,8 +165,10 @@ public class MainActivity extends Activity {
                     } else if (f.getName().toLowerCase().endsWith(".ttf")) {
                         dlg.dismiss();
                         comps.clear();
+                        lastMeta = null;
                         addComp("fonts", f.getAbsolutePath());
                         renderComps();
+                        renderMeta();
                         log("已选择字体: " + f.getName() + "\n字体为实验性：部署后建议重启设备。");
                     } else {
                         dlg.dismiss();
@@ -272,7 +274,69 @@ public class MainActivity extends Activity {
         }
 
         renderComps();
+        renderMeta();
         log("提示：桌面图标的替换包含在「系统图标」组件中（桌面没有独立组件）。");
+    }
+
+    // ---------- 元数据预览卡（commit: add theme metadata preview） ----------
+    private void renderMeta() {
+        android.widget.ImageView pv = findViewById(R.id.meta_preview);
+        TextView mt = findViewById(R.id.meta_text);
+        if (lastMeta == null) {
+            pv.setVisibility(android.view.View.GONE);
+            mt.setVisibility(android.view.View.GONE);
+            return;
+        }
+        if (!lastMeta.previews.isEmpty()) {
+            android.graphics.Bitmap bm = decodeSampled(lastMeta.previews.get(0), 720);
+            if (bm != null) {
+                pv.setImageBitmap(bm);
+                pv.setVisibility(android.view.View.VISIBLE);
+            } else {
+                pv.setVisibility(android.view.View.GONE);
+            }
+        } else {
+            pv.setVisibility(android.view.View.GONE);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("主题名称: ").append(lastMeta.name).append('\n');
+        sb.append("作者: ").append(lastMeta.author).append('\n');
+        sb.append("版本: ").append(lastMeta.version).append('\n');
+        sb.append("适配 UI 版本: ").append(lastMeta.uiVersion).append('\n');
+        sb.append("主题大小: ").append(fmtSize(lastMeta.sizeBytes)).append('\n');
+        String sha = lastMeta.sha256;
+        if (sha.length() > 20) sha = sha.substring(0, 20) + "…";
+        sb.append("SHA256: ").append(sha).append('\n');
+        sb.append("组件清单: ");
+        if (lastMeta.components.isEmpty()) sb.append("未知");
+        else {
+            java.util.Iterator<String> it = lastMeta.components.iterator();
+            while (it.hasNext()) sb.append(it.next()).append(it.hasNext() ? "、 " : "");
+        }
+        mt.setText(sb.toString());
+        mt.setVisibility(android.view.View.VISIBLE);
+    }
+
+    private String fmtSize(long bytes) {
+        if (bytes >= 1024L * 1024 * 1024) return String.format(java.util.Locale.US, "%.2fGB", bytes / 1024.0 / 1024 / 1024);
+        if (bytes >= 1024L * 1024) return String.format(java.util.Locale.US, "%.2fMB", bytes / 1024.0 / 1024);
+        if (bytes >= 1024) return String.format(java.util.Locale.US, "%.1fKB", bytes / 1024.0);
+        return bytes + "B";
+    }
+
+    private android.graphics.Bitmap decodeSampled(File f, int target) {
+        try {
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+            int sample = 1;
+            while (o.outWidth / sample > target) sample *= 2;
+            android.graphics.BitmapFactory.Options o2 = new android.graphics.BitmapFactory.Options();
+            o2.inSampleSize = sample;
+            return android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath(), o2);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     private void renderComps() {

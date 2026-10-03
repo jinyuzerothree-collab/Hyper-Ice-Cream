@@ -18,6 +18,24 @@
         android:layout_height="wrap_content"
         android:text="① 选择主题包 / 字体文件"/>
 
+    <ImageView
+        android:id="@+id/meta_preview"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:scaleType="fitCenter"
+        android:adjustViewBounds="true"
+        android:visibility="gone"
+        android:contentDescription="主题预览图"/>
+
+    <TextView
+        android:id="@+id/meta_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:textSize="12sp"
+        android:padding="6dp"
+        android:background="#11000000"/>
+
     <LinearLayout
         android:id="@+id/comps"
         android:orientation="vertical"
