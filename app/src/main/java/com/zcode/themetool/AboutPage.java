@@ -145,7 +145,7 @@ public class AboutPage {
         p.setTextSize(42 * density);
         p.setTypeface(Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL));
         p.setLetterSpacing(0.02f);
-        p.setColor(night ? 0xFFF0E2EC : 0xFF7A2F4E);
+        p.setColor(night ? 0xFFFFFFFF : 0xFF000000); // 黑字（暗色白字）
         p.setStyle(android.graphics.Paint.Style.FILL_AND_STROKE);
         p.setStrokeWidth(0.6f * density); // 极细描边，仅抗锯齿增厚
         float tw = p.measureText(text);
