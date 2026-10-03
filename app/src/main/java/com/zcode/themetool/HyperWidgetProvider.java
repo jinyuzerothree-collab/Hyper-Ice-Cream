@@ -1,5 +1,6 @@
 package com.zcode.themetool;
 
+import android.app.Activity;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
@@ -45,6 +46,18 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
         int[] ids = mgr.getAppWidgetIds(new ComponentName(ctx, HyperWidgetProvider.class));
         for (int id : ids) render(ctx, mgr, id);
+    }
+
+    /** 一键钉选时钟小组件到桌面（系统确认框） */
+    static void pinClockWidget(Activity act) {
+        try {
+            AppWidgetManager mgr = AppWidgetManager.getInstance(act);
+            boolean ok = mgr.requestPinAppWidget(
+                    new ComponentName(act, HyperWidgetProvider.class), null, null);
+            if (!ok) throw new RuntimeException("桌面不支持钉选");
+        } catch (Throwable t) {
+            throw new RuntimeException("请到 桌面长按→小部件 手动添加 (" + t.getMessage() + ")");
+        }
     }
 
     private static void render(Context ctx, AppWidgetManager mgr, int id) {

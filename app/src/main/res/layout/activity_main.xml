@@ -205,6 +205,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="重启桌面 (Launcher，部署小组件后使用)"/>
+
+            <Button
+                android:id="@+id/btn_pin_widget"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="添加 Hyper 时钟小组件到桌面"/>
         </LinearLayout>
     </ScrollView>
 

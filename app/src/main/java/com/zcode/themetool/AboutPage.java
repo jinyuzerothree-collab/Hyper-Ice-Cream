@@ -36,15 +36,14 @@ public class AboutPage {
         root.setPadding(dp(act, 20), dp(act, 64), dp(act, 20), dp(act, 40));
         scroll.addView(root);
 
-        // ===== Hero：仅文字，粗体居中 =====
-        TextView name = new TextView(act);
-        name.setText("Hyper Ice Cream");
-        name.setTextSize(34);
-        name.setTypeface(Typeface.DEFAULT_BOLD);
-        name.setLetterSpacing(-0.02f);
-        name.setTextColor(night ? 0xFFF0E2EC : 0xFF7A2F4E);
-        name.setGravity(Gravity.CENTER);
-        root.addView(name);
+        // ===== Hero：自绘字标（Canvas 粗体，不依赖系统 TextView 字重） =====
+        ImageView wordmark = new ImageView(act);
+        wordmark.setImageBitmap(wordmarkBitmap(act, night));
+        wordmark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(act, 78));
+        wordmark.setLayoutParams(wlp);
+        root.addView(wordmark);
 
         TextView ver = new TextView(act);
         ver.setText(AboutBuild.VERSION_NAME + " | " + L10n.t(act, "release"));
@@ -136,6 +135,28 @@ public class AboutPage {
         foot.setLayoutParams(flp);
         body.addView(foot);
         return scroll;
+    }
+
+    /** 自绘字标：Canvas 加粗描边渲染，厚度不受系统字体影响 */
+    private static android.graphics.Bitmap wordmarkBitmap(Activity act, boolean night) {
+        float density = act.getResources().getDisplayMetrics().density;
+        String text = "Hyper Ice Cream";
+        android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        p.setTextSize(40 * density);
+        p.setTypeface(Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD));
+        p.setFakeBoldText(true);
+        p.setLetterSpacing(-0.01f);
+        p.setColor(night ? 0xFFF0E2EC : 0xFF7A2F4E);
+        p.setStyle(android.graphics.Paint.Style.FILL_AND_STROKE);
+        p.setStrokeWidth(2.2f * density); // 额外描边厚度 = 更粗
+        float tw = p.measureText(text);
+        android.graphics.Paint.FontMetrics fm = p.getFontMetrics();
+        int w = (int) (tw + 8 * density);
+        int h = (int) (fm.descent - fm.ascent + 8 * density);
+        android.graphics.Bitmap bm = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas cv = new android.graphics.Canvas(bm);
+        cv.drawText(text, 4 * density, -fm.ascent + 4 * density, p);
+        return bm;
     }
 
     private static String userName(Activity act) {

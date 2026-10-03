@@ -139,6 +139,7 @@ public class MainActivity extends Activity {
             log("SystemUI 重启指令已发送。");
         });
         findViewById(R.id.btn_launcher).setOnClickListener(v -> doRestartLauncher());
+        findViewById(R.id.btn_pin_widget).setOnClickListener(v -> pinClockWidget());
 
         pageHome = findViewById(R.id.page_home);
         pageCommunity = findViewById(R.id.page_community);
@@ -155,8 +156,46 @@ public class MainActivity extends Activity {
         applyDockStyle();
         initSwipeDetector();
         applyL10n();
+        applyImmersive();
         switchPage(0);
         attachGlassDock(); // 真·液态玻璃：独立窗口 + blurBehind（API31+），失败则用内嵌 Dock
+        autoExportWidgetAssets(); // 修复"部署在先、导出逻辑在后"导致素材缺失：打开应用即补导出
+    }
+
+    /** 沉浸式：渐变背景顶到屏幕最上沿（透明状态栏），消除"白色刘海块" */
+    private void applyImmersive() {
+        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
+                android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        View d = getWindow().getDecorView();
+        d.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        int sb = getResources().getIdentifier("status_bar_height", "dimen", "android");
+        int top = sb > 0 ? getResources().getDimensionPixelSize(sb) : (int) dp(24);
+        // 各页顶部补状态栏高度
+        ((LinearLayout) pageHome.getChildAt(0)).setPadding(dp(20), top + dp(8), dp(20), dp(20));
+        ((LinearLayout) pageCommunity.getChildAt(0)).setPadding(dp(20), top + dp(8), dp(20), dp(8));
+        ((LinearLayout) pageTools.getChildAt(0)).setPadding(dp(20), top + dp(8), dp(20), dp(20));
+        // 关于页自身 padding 在 AboutPage 内部（64dp 顶部已够）
+    }
+
+    /** 一键把 Hyper 时钟小组件钉到桌面（免去在系统选择器里翻找） */
+    private void pinClockWidget() {
+        try {
+            HyperWidgetProvider.pinClockWidget(this);
+            log("✅ 已弹出系统钉选确认框，确认后小组件直接上桌面。");
+        } catch (Throwable t) {
+            log("钉选失败: " + t + "，请到 桌面长按→小部件 手动添加。");
+        }
+    }
+
+    /** 若系统主题里已有时钟组件而素材未导出，静默补导出 */
+    private void autoExportWidgetAssets() {
+        new Thread(() -> {
+            String r = execSu("test -f /data/system/theme/clock_2x4 && echo HAVE-CLOCK");
+            if (r.contains("HAVE-CLOCK")) {
+                runOnUiThread(this::exportWidgetAssets);
+            }
+        }).start();
     }
 
     // ---------- 三语（简/繁/英） ----------
