@@ -140,6 +140,7 @@ public class MainActivity extends Activity {
         });
         findViewById(R.id.btn_launcher).setOnClickListener(v -> doRestartLauncher());
         findViewById(R.id.btn_pin_widget).setOnClickListener(v -> pinClockWidget());
+        buildToolExtras();
 
         pageHome = findViewById(R.id.page_home);
         pageCommunity = findViewById(R.id.page_community);
@@ -172,6 +173,66 @@ public class MainActivity extends Activity {
                         ? new int[]{0xFF1B2438, 0xFF241B33, 0xFF0F141F}
                         : new int[]{0xFFFFD3E2, 0xFFE3D4FF, 0xFFFFEDF0});
         root.setBackground(bg);
+    }
+
+    /** 工具页扩展：Dock 三常驻图标开关 + 假信号浮层开关 */
+    private void buildToolExtras() {
+        LinearLayout tools = (LinearLayout) ((ScrollView) findViewById(R.id.page_tools)).getChildAt(0);
+        TextView t = new TextView(this);
+        t.setText("Dock 常驻图标（改后需重启桌面）");
+        t.setTextSize(14);
+        t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        t.setPadding(0, dp(16), 0, dp(6));
+        tools.addView(t);
+        String[][] docks = {{"hide_phone", "隐藏：手机（远控）"}, {"hide_xiaoai", "隐藏：超级小爱"}, {"hide_search", "隐藏：搜索"}};
+        for (String[] d : docks) {
+            android.widget.CheckBox cb = new android.widget.CheckBox(this);
+            cb.setText(d[1]);
+            cb.setChecked("1".equals(dockConfGet(d[0])));
+            cb.setOnCheckedChangeListener((b, c) -> {
+                String v = c ? "1" : "0";
+                String DOCK = "/data/system/hypericecream_dock.conf";
+                execSu("sed -i 's/" + d[0] + "=[01]/" + d[0] + "=" + v + "/' " + DOCK
+                        + " || echo " + d[0] + "=" + v + " > " + DOCK);
+                log(d[0] + " = " + v + "（重启桌面生效）");
+            });
+            tools.addView(cb);
+        }
+        TextView t2 = new TextView(this);
+        t2.setText("假信号（显示层·小白卡）");
+        t2.setTextSize(14);
+        t2.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        t2.setPadding(0, dp(16), 0, dp(6));
+        tools.addView(t2);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        Button start = new Button(this);
+        start.setText("启动显示");
+        start.setOnClickListener(v -> {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                Toast.makeText(this, "请先允许「显示在其他应用上层」权限", Toast.LENGTH_LONG).show();
+                startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:com.zcode.themetool")));
+                return;
+            }
+            startService(new Intent(this, FakeSignalService.class));
+            log("假信号浮层已启动（状态栏右上角，纯显示）");
+        });
+        row.addView(start);
+        Button stop = new Button(this);
+        stop.setText("停止显示");
+        stop.setOnClickListener(v -> stopService(new Intent(this, FakeSignalService.class)));
+        row.addView(stop);
+        tools.addView(row);
+        TextView note = new TextView(this);
+        note.setText("说明：仅状态栏视觉伪装（四格+4G），不产生真实网络。");
+        note.setTextSize(11);
+        tools.addView(note);
+    }
+
+    private String dockConfGet(String key) {
+        String r = execSu("grep -E '^" + key + "=' /data/system/hypericecream_dock.conf");
+        return r.contains("=1") ? "1" : "0";
     }
 
     /** 沉浸式：渐变背景顶到屏幕最上沿（透明状态栏），消除"白色刘海块" */

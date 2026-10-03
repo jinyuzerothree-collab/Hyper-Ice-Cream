@@ -138,11 +138,12 @@ public class AboutPage {
         String text = "Hyper Ice Cream";
         android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
         p.setTextSize(42 * density);
-        p.setTypeface(Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL));
-        p.setLetterSpacing(0.02f);
-        p.setColor(night ? 0xFFFFFFFF : 0xFF000000); // 黑字（暗色白字）
+        p.setTypeface(Typeface.DEFAULT_BOLD);
+        p.setFakeBoldText(true);
+        p.setLetterSpacing(0.0f);
+        p.setColor(night ? 0xFFF0F0F0 : 0xFF000000);
         p.setStyle(android.graphics.Paint.Style.FILL_AND_STROKE);
-        p.setStrokeWidth(0.6f * density); // 极细描边，仅抗锯齿增厚
+        p.setStrokeWidth(0.4f * density); // 微描边抗锯齿，粗度=首页标题
         float tw = p.measureText(text);
         android.graphics.Paint.FontMetrics fm = p.getFontMetrics();
         int w = (int) (tw + 8 * density);
