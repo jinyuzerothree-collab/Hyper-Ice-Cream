@@ -1,6 +1,5 @@
 package com.zcode.themetool;
 
-import android.app.Activity;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
@@ -11,6 +10,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.icu.util.ChineseCalendar;
 import android.os.Bundle;
 import android.widget.RemoteViews;
 import java.io.File;
@@ -24,10 +24,9 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Hyper Ice Cream Widget v2 —— "拆解复现"渲染引擎（用户方案）。
- *  解析主题时钟 manifest 的元素间距比例（#vh 分数锚点/字号/左边距），
- *  将数字贴图与日期文字按这些比例重新排版到系统实际分配的画布上。
- *  桌面把 Widget 拉到 2×4 ≈ 原始布局 ×2 的复现；拉到 4×2 则横向铺开。不拉伸贴图。 */
+/** Hyper Ice Cream Widget v3 —— 拆解复现渲染引擎。
+ *  解析主题 manifest 的 #vh 分数锚点 → 日期/农历/时间/天气行按比例重排到实际画布。
+ *  新增：农历（ICU ChineseCalendar）、天气行（贴图预留）。 */
 public class HyperWidgetProvider extends AppWidgetProvider {
 
     private static final String ASSET_DIR = "widget_assets/clock_2x4";
@@ -49,7 +48,7 @@ public class HyperWidgetProvider extends AppWidgetProvider {
     }
 
     /** 一键钉选时钟小组件到桌面（系统确认框） */
-    static void pinClockWidget(Activity act) {
+    static void pinClockWidget(android.app.Activity act) {
         try {
             AppWidgetManager mgr = AppWidgetManager.getInstance(act);
             boolean ok = mgr.requestPinAppWidget(
@@ -63,10 +62,10 @@ public class HyperWidgetProvider extends AppWidgetProvider {
     private static void render(Context ctx, AppWidgetManager mgr, int id) {
         Bundle o = mgr.getAppWidgetOptions(id);
         float density = ctx.getResources().getDisplayMetrics().density;
-        int wDp = Math.max(o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110),
-                o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 110));
-        int hDp = Math.max(o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 60),
-                o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 60));
+        int wDp = Math.max(o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180),
+                o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 180));
+        int hDp = Math.max(o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 280),
+                o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 280));
         int wPx = Math.max(64, Math.min(2048, (int) (wDp * density)));
         int hPx = Math.max(64, Math.min(2048, (int) (hDp * density)));
 
@@ -85,7 +84,7 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         mgr.updateAppWidget(id, rv);
     }
 
-    /** 按主题比例把时钟元素复现在 w×h 画布上。无素材/解析失败返回 null（走字体降级）。 */
+    /** 拆解复现渲染：按主题 manifest 间距比例重排到 w×h 画布。 */
     private static Bitmap renderClockCanvas(Context ctx, int w, int h) {
         File assetDir = new File(ctx.getFilesDir(), ASSET_DIR);
         File manifest = new File(assetDir, "manifest.xml");
@@ -94,32 +93,41 @@ public class HyperWidgetProvider extends AppWidgetProvider {
 
         try {
             String mx = readText(manifest);
-            float fDate = frac(mx, "week_en", 0.12f);
-            float fTime = frac(mx, "t2_1", 0.42f);
+            float fDate = fracAfter(mx, "week_en", 0.12f);
+            float fTime = fracAfter(mx, "t2_1", 0.42f);
+            float fWx = fracAfter(mx, "weather_description", 0.88f);
+            if (fTime > fWx) { float tmp = fTime; fTime = fWx; fWx = tmp; }
             float baseX = num(mx, "x=\"(\\d+)", 60f);
             float dateSize = num(mx, "size=\"(\\d+)\"[^>]*textExp=\"@week", 72f);
             int designW = (int) num(mx, "screenWidth=\"(\\d+)\"", 1080);
+            if (designW <= 0) designW = 1080;
+
+            float s = (float) w / designW;
+            float x0 = baseX * s;
 
             Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             Canvas cv = new Canvas(out);
-            float s = (float) w / designW;
-
             Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
             p.setColor(Color.WHITE);
-            p.setShadowLayer(6 * s, 0, 2 * s, 0x99000000);
-            // 用户要求组件文字加重：medium+Bold+伪粗（数字贴图本身为主题资源，字重不变）
+            p.setShadowLayer(5 * s, 0, 2 * s, 0x88000000);
             p.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-            p.setFakeBoldText(true);
 
-            // 1) 日期行（位置/字号按主题比例）
-            String date = new SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(new Date());
-            p.setTextSize(dateSize * s);
-            p.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-            cv.drawText(date, baseX * s, fDate * h, p);
+            // 行 1：公历日期
+            String solar = new SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(new Date());
+            float solarSize = dateSize * s;
+            p.setTextSize(solarSize);
+            cv.drawText(solar, x0, fDate * h, p);
 
-            // 2) 时间数字贴图行（HH:mm），贴图高度 = (天气锚点 - 时间锚点) 的 55%
-            List<Bitmap> digits = new ArrayList<>();
+            // 行 1b：农历
+            String lunar = getLunarString();
+            if (!lunar.isEmpty()) {
+                p.setTextSize(solarSize * 0.55f);
+                cv.drawText(lunar, x0, fDate * h + solarSize * 1.3f, p);
+            }
+
+            // 行 2：时间数字贴图（或字体降级）
             String hhmm = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
+            List<Bitmap> digits = new ArrayList<>();
             for (char ch : hhmm.toCharArray()) {
                 String fn = ch == ':' ? "num_dot.png" : ("num_" + ch + ".png");
                 File f = new File(numDir, fn);
@@ -128,9 +136,8 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                 if (raw != null) digits.add(raw);
             }
             if (!digits.isEmpty()) {
-                float fWx = frac(mx, "weather", 0.88f);
-                float digitH = Math.max(24, (fWx - fTime) * h * 0.55f);
-                float x = baseX * s;
+                float digitH = Math.max(30, (fWx - fTime) * h * 0.65f);
+                float x = x0;
                 float y = fTime * h;
                 for (Bitmap d : digits) {
                     float dw = d.getWidth() * digitH / d.getHeight();
@@ -138,24 +145,44 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                     x += dw;
                 }
             } else {
-                // 无贴图：字体时间
-                p.setTextSize(dateSize * s * 1.6f);
-                cv.drawText(hhmm, baseX * s, fTime * h + dateSize * s, p);
+                p.setTextSize(dateSize * s * 1.5f);
+                cv.drawText(hhmm, x0, fTime * h + dateSize * s, p);
             }
 
-            // 3) 天气行：主题有 weather 贴图与文案位，但数据源需系统查询（v3 接入），此处留白
             return out;
         } catch (Throwable t) {
             return null;
         }
     }
 
-    /** 从 manifest 提取 marker 附近的 #vh 分数锚点 */
-    private static float frac(String mx, String marker, float def) {
+    /** 农历字符串（ICU ChineseCalendar） */
+    private static String getLunarString() {
+        try {
+            ChineseCalendar cc = new ChineseCalendar(new Date());
+            int month = cc.get(ChineseCalendar.MONTH) + 1;
+            int day = cc.get(ChineseCalendar.DAY_OF_MONTH);
+            String[] months = {"正月","二月","三月","四月","五月","六月",
+                    "七月","八月","九月","十月","冬月","腊月"};
+            String[] days = {"初一","初二","初三","初四","初五","初六","初七","初八","初九","初十",
+                    "十一","十二","十三","十四","十五","十六","十七","十八","十九","二十",
+                    "廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"};
+            String lm = months[(month - 1) % 12];
+            String ld = day <= 10 ? days[day - 1]
+                    : day <= 19 ? "十" + days[day - 11]
+                    : day == 20 ? "二十"
+                    : day <= 29 ? "廿" + days[day - 21]
+                    : "三十";
+            return "农历" + lm + ld;
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    private static float fracAfter(String mx, String marker, float def) {
         int i = mx.indexOf(marker);
         if (i < 0) return def;
-        int from = Math.max(0, i - 400);
-        int to = Math.min(mx.length(), i + 400);
+        int from = Math.max(0, i - 500);
+        int to = Math.min(mx.length(), i + 500);
         Matcher m = Pattern.compile("#vh\\*([0-9.]+)").matcher(mx.substring(from, to));
         return m.find() ? Float.parseFloat(m.group(1)) : def;
     }
