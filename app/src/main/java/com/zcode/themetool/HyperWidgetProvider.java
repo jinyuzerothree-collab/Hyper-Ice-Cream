@@ -116,93 +116,68 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         return "";
     }
 
-    /** 拆解复现渲染：按主题 manifest 间距比例重排到 w×h 画布。 */
+    /** 拆解复现渲染 v3：垂直排列所有元素（日期→农历→时间→天气），按画布尺寸自适应。 */
     private static Bitmap renderClockCanvas(Context ctx, int w, int h) {
         File assetDir = new File(ctx.getFilesDir(), ASSET_DIR);
-        File manifest = new File(assetDir, "manifest.xml");
         File numDir = new File(assetDir, "src/num/white/type_0");
-        if (!manifest.isFile() || !numDir.isDirectory()) return null;
+        if (!numDir.isDirectory()) return null;
 
-        try {
-            String mx = readText(manifest);
-            float fDate = fracAfter(mx, "week_en", 0.12f);
-            float fTime = fracAfter(mx, "t2_1", 0.42f);
-            float fWx = fracAfter(mx, "weather_description", 0.88f);
-            if (fTime > fWx) { float tmp = fTime; fTime = fWx; fWx = tmp; }
-            // 确保最小间距不重叠
-            if (fTime - fDate < 0.15f) fTime = fDate + 0.15f;
-            if (fWx - fTime < 0.15f) fWx = fTime + 0.15f;
-            if (fWx > 0.95f) fWx = 0.95f;
-            float baseX = num(mx, "x=\"(\\d+)", 60f);
-            float dateSize = num(mx, "size=\"(\\d+)\"[^>]*textExp=\"@week", 72f);
-            int designW = (int) num(mx, "screenWidth=\"(\\d+)\"", 1080);
-            if (designW <= 0) designW = 1080;
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas cv = new Canvas(out);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(Color.WHITE);
+        p.setShadowLayer(4, 0, 2, 0x88000000);
 
-            float s = (float) w / designW;
-            float x0 = baseX * s;
+        // 时段文字
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
+        String period;
+        if (hour >= 5 && hour < 8) period = "早上";
+        else if (hour >= 8 && hour < 12) period = "上午";
+        else if (hour >= 12 && hour < 14) period = "中午";
+        else if (hour >= 14 && hour < 18) period = "下午";
+        else period = "晚上";
 
-            Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-            Canvas cv = new Canvas(out);
-            Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-            p.setColor(Color.WHITE);
-            p.setShadowLayer(5 * s, 0, 2 * s, 0x88000000);
-            p.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        String dayOfWeek = new SimpleDateFormat("EEEE", Locale.CHINA).format(new Date());
+        String solar = new SimpleDateFormat("M月d日", Locale.CHINA).format(new Date());
+        String lunar = getLunarString();
+        String hhmm = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
+        String weather = getSystemWeather(ctx);
 
-            // 行 1：公历日期
-            String solar = new SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(new Date());
-            float solarSize = dateSize * s;
-            p.setTextSize(solarSize);
-            cv.drawText(solar, x0, fDate * h, p);
+        // 垂直排列，按比例分配空间
+        float yy = h * 0.06f;
+        float step;
 
-            // 行 1b：农历
-            String lunar = getLunarString();
-            if (!lunar.isEmpty()) {
-                p.setTextSize(solarSize * 0.55f);
-                cv.drawText(lunar, x0, fDate * h + solarSize * 1.3f, p);
-            }
+        // 行 1: 星期X + 时段
+        float dowSize = h * 0.09f;
+        p.setTextSize(dowSize);
+        cv.drawText(dayOfWeek + " " + period, x_pad, yy + dowSize, p);
+        yy += dowSize * 1.6f;
 
-            // 行 2：时间数字贴图（或字体降级）+ 上午/下午
-            String hhmm = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
-            String ampm = new SimpleDateFormat("a", Locale.CHINA).format(new Date());
-            List<Bitmap> digits = new ArrayList<>();
-            for (char ch : hhmm.toCharArray()) {
-                String fn = ch == ':' ? "num_dot.png" : ("num_" + ch + ".png");
-                File f = new File(numDir, fn);
-                if (!f.isFile()) { digits.clear(); break; }
-                Bitmap raw = BitmapFactory.decodeFile(f.getAbsolutePath());
-                if (raw != null) digits.add(raw);
-            }
-            if (!digits.isEmpty()) {
-                float digitH = Math.max(30, (fWx - fTime) * h * 0.55f);
-                float x = x0;
-                float y = fTime * h;
-                // 上午/下午标签
-                if (!ampm.isEmpty()) {
-                    p.setTextSize(digitH * 0.3f);
-                    cv.drawText(ampm, x, y + digitH * 0.25f, p);
-                }
-                for (Bitmap d : digits) {
-                    float dw = d.getWidth() * digitH / d.getHeight();
-                    cv.drawBitmap(d, null, new android.graphics.RectF(x, y, x + dw, y + digitH), p);
-                    x += dw;
-                }
-            } else {
-                p.setTextSize(dateSize * s * 1.5f);
-                cv.drawText(ampm + " " + hhmm, x0, fTime * h + dateSize * s, p);
-            }
+        // 行 2: 时间数字（大）
+        float timeSize = h * 0.22f;
+        p.setTextSize(timeSize);
+        cv.drawText(hhmm, x_pad, yy + timeSize, p);
+        yy += timeSize * 1.3f;
 
-            // 行 3：天气占位（位于主题 weather 锚点处）
-            String weatherText = getSystemWeather(ctx);
-            if (!weatherText.isEmpty()) {
-                p.setTextSize(dateSize * s * 0.5f);
-                cv.drawText(weatherText, x0, fWx * h, p);
-            }
+        // 行 3: 公历日期 + 农历
+        float dateSize = h * 0.07f;
+        p.setTextSize(dateSize);
+        String dateLine = solar + "  " + lunar;
+        cv.drawText(dateLine, x_pad, yy + dateSize, p);
+        yy += dateSize * 1.8f;
 
-            return out;
-        } catch (Throwable t) {
-            return null;
+        // 行 4: 天气
+        if (!weather.isEmpty()) {
+            float wxSize = h * 0.06f;
+            p.setTextSize(wxSize);
+            cv.drawText(weather, x_pad, yy + wxSize, p);
         }
+
+        return out;
     }
+
+    private static final float x_pad = 30f;
 
     /** 农历字符串（ICU ChineseCalendar） */
     private static String getLunarString() {
