@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.zcode.themetool"
-    android:versionCode="16"
-    android:versionName="2.8">
+    android:versionCode="19"
+    android:versionName="2.9">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <queries>
+        <intent>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+        </intent>
+    </queries>
     <application android:label="Hyper Ice Cream" android:icon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:allowBackup="false" android:usesCleartextTraffic="false">
         <meta-data android:name="xposedmodule" android:value="true"/>
-        <meta-data android:name="xposeddescription" android:value="Hyper Ice Cream 全能模块：主题直装/传送门/旧组件恢复/信号显示"/>
+        <meta-data android:name="xposeddescription" android:value="Hyper Ice Cream 全能模块：主题直装/传送门/旧组件恢复"/>
         <meta-data android:name="xposedminversion" android:value="93"/>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
@@ -24,6 +30,5 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/hyper_widget_info"/>
         </receiver>
-            <service android:name=".FakeSignalService" android:exported="false"/>
     </application>
 </manifest>

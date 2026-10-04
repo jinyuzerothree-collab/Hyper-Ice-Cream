@@ -192,6 +192,23 @@ public class MainActivity extends Activity {
             }
             pkgs.put(p, label + " (" + p + ")");
         }
+        // root dumpsys 补全（AppWidgetManager 可能过滤部分提供者）
+        String dump = execSu("dumpsys appwidget 2>/dev/null");
+        if (dump != null && !dump.isEmpty()) {
+            java.util.regex.Matcher dm = java.util.regex.Pattern.compile(
+                    "provider=ComponentInfo\\{([^ }]+) ").matcher(dump);
+            while (dm.find()) {
+                String dp2 = dm.group(1);
+                if (!dp2.equals(getPackageName()) && !pkgs.containsKey(dp2)) {
+                    CharSequence label;
+                    try {
+                        label = getPackageManager().getApplicationLabel(
+                                getPackageManager().getApplicationInfo(dp2, 0));
+                    } catch (Throwable ignored) { label = dp2; }
+                    pkgs.put(dp2, label + " (" + dp2 + ")");
+                }
+            }
+        }
         // 当前白名单
         java.util.Set<String> current = new java.util.HashSet<>();
         String cur = execSu("cat /data/system/hypericecream_widget_whitelist.txt 2>/dev/null");

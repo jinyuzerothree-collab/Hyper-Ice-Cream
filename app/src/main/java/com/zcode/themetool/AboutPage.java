@@ -174,7 +174,7 @@ public class AboutPage {
 
     private static String osVersion() {
         try {
-            Process p = Runtime.getRuntime().exec(new String[]{"getprop", "ro.mi.os.version.name"});
+            Process p = Runtime.getRuntime().exec(new String[]{"getprop", "ro.build.version.incremental"});
             byte[] b = new byte[128];
             int n = p.getInputStream().read(b);
             p.waitFor();
@@ -217,7 +217,7 @@ public class AboutPage {
         TextView t = new TextView(act);
         t.setText(s);
         t.setTextSize(sp);
-        // 关于页统一加粗：粗一点点（与首页标题同级字重）
+        // 统一 medium+伪粗：粗一点点，不细不肿
         t.setTypeface(Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
         t.setTextColor(color);
         t.setPadding(0, 0, 0, dp(act, padBottomDp));
@@ -251,13 +251,13 @@ public class AboutPage {
         TextView tv = new TextView(act);
         tv.setText(value);
         tv.setTextSize(20);
-        tv.setTypeface(Typeface.DEFAULT_BOLD);
+        tv.setTypeface(Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
         tv.setTextColor(night ? 0xFFF0F0F0 : 0xFF111111);
         v.addView(tv);
         TextView tl = new TextView(act);
         tl.setText(label);
         tl.setTextSize(13);
-        tl.setTypeface(Typeface.DEFAULT_BOLD);
+        tl.setTypeface(Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         tl.setTextColor(night ? 0xAAFFFFFF : 0xAA333333);
         v.addView(tl);
         return v;

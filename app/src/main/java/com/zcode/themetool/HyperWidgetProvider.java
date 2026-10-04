@@ -107,6 +107,9 @@ public class HyperWidgetProvider extends AppWidgetProvider {
             Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
             p.setColor(Color.WHITE);
             p.setShadowLayer(6 * s, 0, 2 * s, 0x99000000);
+            // 用户要求组件文字加重：medium+Bold+伪粗（数字贴图本身为主题资源，字重不变）
+            p.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+            p.setFakeBoldText(true);
 
             // 1) 日期行（位置/字号按主题比例）
             String date = new SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(new Date());

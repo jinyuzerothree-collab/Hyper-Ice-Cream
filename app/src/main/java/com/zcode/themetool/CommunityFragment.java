@@ -43,8 +43,10 @@ public class CommunityFragment {
     }
 
     private static final String[] INDEX_URLS = {
-            "https://raw.githubusercontent.com/jinyuzerothree-collab/HyperOS-Theme-Installer/main/themes/index.json",
-            "https://gh-proxy.com/https://raw.githubusercontent.com/jinyuzerothree-collab/HyperOS-Theme-Installer/main/themes/index.json",
+            "https://cdn.jsdelivr.net/gh/jinyuzerothree-collab/Hyper-Ice-Cream@main/themes/index.json",
+            "https://gh-proxy.com/https://raw.githubusercontent.com/jinyuzerothree-collab/Hyper-Ice-Cream/main/themes/index.json",
+            "https://ghproxy.net/https://raw.githubusercontent.com/jinyuzerothree-collab/Hyper-Ice-Cream/main/themes/index.json",
+            "https://raw.githubusercontent.com/jinyuzerothree-collab/Hyper-Ice-Cream/main/themes/index.json",
     };
     private static final String[] DL_PREFIX_FALLBACK = {"", "https://gh-proxy.com/"};
 
