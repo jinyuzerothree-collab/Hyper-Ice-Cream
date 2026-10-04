@@ -1,4 +1,4 @@
-package com.zcode.themetool.hook;
+package com.hyper.icecream.hook;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;

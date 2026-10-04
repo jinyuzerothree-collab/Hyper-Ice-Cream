@@ -1,4 +1,4 @@
-package com.zcode.themetool;
+package com.hyper.icecream;
 
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;

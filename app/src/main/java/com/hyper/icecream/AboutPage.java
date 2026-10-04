@@ -1,4 +1,4 @@
-package com.zcode.themetool;
+package com.hyper.icecream;
 
 import android.animation.ValueAnimator;
 import android.app.Activity;

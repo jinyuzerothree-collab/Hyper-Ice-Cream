@@ -1,4 +1,4 @@
-package com.zcode.themetool;
+package com.hyper.icecream;
 
 import android.app.Activity;
 import android.app.AlertDialog;

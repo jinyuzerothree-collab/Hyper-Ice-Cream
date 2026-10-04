@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.zcode.themetool"
-    android:versionCode="19"
-    android:versionName="2.9">
+    package="com.hyper.icecream"
+    android:versionCode="20"
+    android:versionName="3.0">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -17,13 +17,13 @@
         <meta-data android:name="xposedmodule" android:value="true"/>
         <meta-data android:name="xposeddescription" android:value="Hyper Ice Cream 全能模块：主题直装/传送门/旧组件恢复"/>
         <meta-data android:name="xposedminversion" android:value="93"/>
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name="com.hyper.icecream.MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <receiver android:name=".HyperWidgetProvider" android:exported="false">
+        <receiver android:name="com.hyper.icecream.HyperWidgetProvider" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
                 <action android:name="android.appwidget.action.APPWIDGET_OPTIONS_CHANGED"/>
