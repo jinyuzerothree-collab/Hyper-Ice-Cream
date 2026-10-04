@@ -141,39 +141,33 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         String weather = getSystemWeather(ctx);
 
         float pad = w * 0.05f;
-        float y = h * 0.08f;
+        float y = h * 0.15f; // 居中：从15%开始而非8%
 
         // 行 1: 星期X + 时段（中号粗体）
-        float l1Size = h * 0.08f;
+        float l1Size = h * 0.07f;
         p.setTextSize(l1Size);
         p.setTypeface(Typeface.DEFAULT_BOLD);
-        p.setFakeBoldText(true);
         cv.drawText(dow + " " + period, pad, y + l1Size, p);
-        y += l1Size * 2.0f;
+        y += l1Size * 1.7f;
 
-        // 行 2: 时间（特大粗体）
-        float l2Size = h * 0.28f;
+        // 行 2: 时间（大粗体）
+        float l2Size = h * 0.24f;
         p.setTextSize(l2Size);
-        p.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        p.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
         p.setFakeBoldText(true);
-        p.setStrokeWidth(1.5f);
-        p.setStyle(Paint.Style.FILL_AND_STROKE);
         cv.drawText(time, pad, y + l2Size, p);
-        y += l2Size * 1.4f;
+        y += l2Size * 1.3f;
 
         // 行 3: 日期 + 农历（无前缀）
-        float l3Size = h * 0.07f;
+        float l3Size = h * 0.06f;
         p.setTextSize(l3Size);
         p.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        p.setFakeBoldText(false);
-        p.setStyle(Paint.Style.FILL);
-        p.setStrokeWidth(0);
         cv.drawText(date + "  " + lunar, pad, y + l3Size, p);
-        y += l3Size * 2.0f;
+        y += l3Size * 1.8f;
 
         // 行 4: 天气（有数据则显示）
         if (!weather.isEmpty()) {
-            float l4Size = h * 0.06f;
+            float l4Size = h * 0.055f;
             p.setTextSize(l4Size);
             cv.drawText(weather, pad, y + l4Size, p);
         }
