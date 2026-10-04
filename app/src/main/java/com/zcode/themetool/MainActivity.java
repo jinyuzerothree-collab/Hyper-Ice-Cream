@@ -1105,8 +1105,7 @@ public class MainActivity extends Activity {
 
     // ---------- 部署 ----------
     private void doDeploy() {
-        // 用户要求：加载主题的同时询问 Dock 常驻图标样式
-        askDockStyleThen(this::doDeployInner);
+        doDeployInner();
     }
 
     private void doDeployInner() {
@@ -1120,7 +1119,7 @@ public class MainActivity extends Activity {
         }
         if (selected.isEmpty()) { log("未勾选任何组件"); return; }
 
-        // 小组件：先让用户逐个选择宽×高（格数），直接写入注入的尺寸声明
+        // 小组件：直接用组件名的内置比例注入 description.xml（不弹选择器——Launcher 忽略该声明但保留兼容性）
         final List<Object[]> sel = new ArrayList<>(selected);
         final java.util.HashMap<String, int[]> widgetSizes = new java.util.HashMap<>();
         final List<Object[]> widgets = new ArrayList<>();

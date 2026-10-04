@@ -188,17 +188,11 @@ public class HyperWidgetProvider extends AppWidgetProvider {
             }
 
             // 行 3：天气占位（位于主题 weather 锚点处）
-            String weatherText = getSystemWeather();
+            String weatherText = getSystemWeather(ctx);
             if (!weatherText.isEmpty()) {
                 p.setTextSize(dateSize * s * 0.5f);
                 cv.drawText(weatherText, x0, fWx * h, p);
             }
-
-            // 点击打开时钟 App
-            android.app.PendingIntent pi = android.app.PendingIntent.getActivity(ctx, 0,
-                    ctx.getPackageManager().getLaunchIntentForPackage("com.android.deskclock"),
-                    android.app.PendingIntent.FLAG_IMMUTABLE);
-            rv.setOnClickPendingIntent(R.id.widget_canvas, pi);
 
             return out;
         } catch (Throwable t) {
