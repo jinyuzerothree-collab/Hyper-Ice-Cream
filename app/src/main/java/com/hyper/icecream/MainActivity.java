@@ -496,7 +496,7 @@ public class MainActivity extends Activity {
     private void pinClockWidget() {
         try {
             HyperWidgetProvider.pinClockWidget(this);
-            log("✅ 已弹出系统钉选确认框，确认后小组件直接上桌面。");
+            log("✅ 已弹出系统钉选确认框，确认后小组件直接上桌面（实验性功能，布局可能随桌面版本变化）。");
         } catch (Throwable t) {
             log("钉选失败: " + t + "，请到 桌面长按→小部件 手动添加。");
         }
