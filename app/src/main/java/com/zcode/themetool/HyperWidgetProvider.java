@@ -129,6 +129,10 @@ public class HyperWidgetProvider extends AppWidgetProvider {
             float fTime = fracAfter(mx, "t2_1", 0.42f);
             float fWx = fracAfter(mx, "weather_description", 0.88f);
             if (fTime > fWx) { float tmp = fTime; fTime = fWx; fWx = tmp; }
+            // 确保最小间距不重叠
+            if (fTime - fDate < 0.15f) fTime = fDate + 0.15f;
+            if (fWx - fTime < 0.15f) fWx = fTime + 0.15f;
+            if (fWx > 0.95f) fWx = 0.95f;
             float baseX = num(mx, "x=\"(\\d+)", 60f);
             float dateSize = num(mx, "size=\"(\\d+)\"[^>]*textExp=\"@week", 72f);
             int designW = (int) num(mx, "screenWidth=\"(\\d+)\"", 1080);

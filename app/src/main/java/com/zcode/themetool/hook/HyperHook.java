@@ -395,13 +395,11 @@ public class HyperHook implements IXposedHookLoadPackage {
                                 || !(param.args[0] instanceof String)) return;
                         String name = (String) param.args[0];
                         if (!name.contains("flutter_assets/assets/images/")) return;
-                        String hidePhone = conf("dock", "hide_phone", "0");
-                        String hideXiaoai = conf("dock", "hide_xiaoai", "0");
-                        String hideSearch = conf("dock", "hide_search", "0");
-                        boolean hit =
-                                ("1".equals(hidePhone) && name.contains("phone"))
-                                        || ("1".equals(hideXiaoai) && name.contains("xiaoai"))
-                                        || ("1".equals(hideSearch) && name.contains("search"));
+                        String dockStyle = conf("dock", "dock_style", "none");
+                        String hideXiaoai = "hide".equals(dockStyle) ? "1" : "0";
+                        String hideSearch = "hide".equals(dockStyle) ? "1" : "0";
+                        boolean hit = "1".equals(hideXiaoai) && (
+                                name.contains("xiaoai") || name.contains("phone") || name.contains("search"));
                         if (hit) {
                             logOnce("dock:" + name, "dock icon hidden: " + name);
                             param.result = new ByteArrayInputStream(new byte[0]);

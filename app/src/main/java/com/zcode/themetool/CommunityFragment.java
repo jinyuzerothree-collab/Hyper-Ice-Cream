@@ -330,7 +330,7 @@ public class CommunityFragment {
     private static HttpURLConnection open(String s) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(s).openConnection();
         c.setConnectTimeout(8000);
-        c.setReadTimeout(30000);
+        c.setReadTimeout(120000);
         c.setInstanceFollowRedirects(true);
         return c;
     }
