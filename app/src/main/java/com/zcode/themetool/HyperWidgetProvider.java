@@ -81,7 +81,39 @@ public class HyperWidgetProvider extends AppWidgetProvider {
             rv.setTextViewText(R.id.widget_fallback,
                     new SimpleDateFormat("HH:mm", Locale.US).format(new Date()));
         }
+        // 点击打开时钟
+        try {
+            android.app.PendingIntent pi = android.app.PendingIntent.getActivity(ctx, 0,
+                    ctx.getPackageManager().getLaunchIntentForPackage("com.android.deskclock"),
+                    android.app.PendingIntent.FLAG_IMMUTABLE);
+            rv.setOnClickPendingIntent(R.id.widget_canvas, pi);
+        } catch (Throwable ignored) {
+        }
         mgr.updateAppWidget(id, rv);
+    }
+
+    private static String getSystemWeather(Context ctx) {
+        try {
+            android.database.Cursor c = ctx.getContentResolver().query(
+                    android.net.Uri.parse("content://weather/weatherData/1/46000"),
+                    null, null, null, null);
+            if (c != null && c.moveToFirst()) {
+                int wtIdx = c.getColumnIndex("weather_type");
+                int tempIdx = c.getColumnIndex("temperature");
+                String result = "";
+                if (tempIdx >= 0) result = c.getInt(tempIdx) + "°";
+                if (wtIdx >= 0) {
+                    String[] types = {"晴","多云","阴","雨","暴雨","雷雨","雪"};
+                    int wt = c.getInt(wtIdx);
+                    if (wt < types.length) result = types[wt] + " " + result;
+                }
+                c.close();
+                return result;
+            }
+            if (c != null) c.close();
+        } catch (Throwable ignored) {
+        }
+        return "";
     }
 
     /** 拆解复现渲染：按主题 manifest 间距比例重排到 w×h 画布。 */
@@ -125,8 +157,9 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                 cv.drawText(lunar, x0, fDate * h + solarSize * 1.3f, p);
             }
 
-            // 行 2：时间数字贴图（或字体降级）
+            // 行 2：时间数字贴图（或字体降级）+ 上午/下午
             String hhmm = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
+            String ampm = new SimpleDateFormat("a", Locale.CHINA).format(new Date());
             List<Bitmap> digits = new ArrayList<>();
             for (char ch : hhmm.toCharArray()) {
                 String fn = ch == ':' ? "num_dot.png" : ("num_" + ch + ".png");
@@ -136,9 +169,14 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                 if (raw != null) digits.add(raw);
             }
             if (!digits.isEmpty()) {
-                float digitH = Math.max(30, (fWx - fTime) * h * 0.65f);
+                float digitH = Math.max(30, (fWx - fTime) * h * 0.55f);
                 float x = x0;
                 float y = fTime * h;
+                // 上午/下午标签
+                if (!ampm.isEmpty()) {
+                    p.setTextSize(digitH * 0.3f);
+                    cv.drawText(ampm, x, y + digitH * 0.25f, p);
+                }
                 for (Bitmap d : digits) {
                     float dw = d.getWidth() * digitH / d.getHeight();
                     cv.drawBitmap(d, null, new android.graphics.RectF(x, y, x + dw, y + digitH), p);
@@ -146,8 +184,21 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                 }
             } else {
                 p.setTextSize(dateSize * s * 1.5f);
-                cv.drawText(hhmm, x0, fTime * h + dateSize * s, p);
+                cv.drawText(ampm + " " + hhmm, x0, fTime * h + dateSize * s, p);
             }
+
+            // 行 3：天气占位（位于主题 weather 锚点处）
+            String weatherText = getSystemWeather();
+            if (!weatherText.isEmpty()) {
+                p.setTextSize(dateSize * s * 0.5f);
+                cv.drawText(weatherText, x0, fWx * h, p);
+            }
+
+            // 点击打开时钟 App
+            android.app.PendingIntent pi = android.app.PendingIntent.getActivity(ctx, 0,
+                    ctx.getPackageManager().getLaunchIntentForPackage("com.android.deskclock"),
+                    android.app.PendingIntent.FLAG_IMMUTABLE);
+            rv.setOnClickPendingIntent(R.id.widget_canvas, pi);
 
             return out;
         } catch (Throwable t) {
