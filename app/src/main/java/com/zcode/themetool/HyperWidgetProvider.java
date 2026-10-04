@@ -116,70 +116,72 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         return "";
     }
 
-    /** 拆解复现渲染 v3：垂直排列所有元素（日期→农历→时间→天气），按画布尺寸自适应。 */
+    /** 拆解复现渲染 v4：垂直排列全部元素，系统粗体字，自适应任意尺寸。 */
     private static Bitmap renderClockCanvas(Context ctx, int w, int h) {
-        File assetDir = new File(ctx.getFilesDir(), ASSET_DIR);
-        File numDir = new File(assetDir, "src/num/white/type_0");
-        if (!numDir.isDirectory()) return null;
-
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(out);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setColor(Color.WHITE);
-        p.setShadowLayer(4, 0, 2, 0x88000000);
+        p.setShadowLayer(6, 0, 3, 0x99000000);
 
-        // 时段文字
+        // 时段
         java.util.Calendar cal = java.util.Calendar.getInstance();
-        int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
+        int hr = cal.get(java.util.Calendar.HOUR_OF_DAY);
         String period;
-        if (hour >= 5 && hour < 8) period = "早上";
-        else if (hour >= 8 && hour < 12) period = "上午";
-        else if (hour >= 12 && hour < 14) period = "中午";
-        else if (hour >= 14 && hour < 18) period = "下午";
+        if (hr >= 5 && hr < 8) period = "早上";
+        else if (hr >= 8 && hr < 12) period = "上午";
+        else if (hr >= 12 && hr < 14) period = "中午";
+        else if (hr >= 14 && hr < 18) period = "下午";
         else period = "晚上";
 
-        String dayOfWeek = new SimpleDateFormat("EEEE", Locale.CHINA).format(new Date());
-        String solar = new SimpleDateFormat("M月d日", Locale.CHINA).format(new Date());
+        String dow = new SimpleDateFormat("EEEE", Locale.CHINA).format(new Date());
+        String date = new SimpleDateFormat("M月d日", Locale.CHINA).format(new Date());
         String lunar = getLunarString();
-        String hhmm = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
+        String time = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
         String weather = getSystemWeather(ctx);
 
-        // 垂直排列，按比例分配空间
-        float yy = h * 0.06f;
-        float step;
+        float pad = w * 0.05f;
+        float y = h * 0.08f;
 
-        // 行 1: 星期X + 时段
-        float dowSize = h * 0.09f;
-        p.setTextSize(dowSize);
-        cv.drawText(dayOfWeek + " " + period, x_pad, yy + dowSize, p);
-        yy += dowSize * 1.6f;
+        // 行 1: 星期X + 时段（中号粗体）
+        float l1Size = h * 0.08f;
+        p.setTextSize(l1Size);
+        p.setTypeface(Typeface.DEFAULT_BOLD);
+        p.setFakeBoldText(true);
+        cv.drawText(dow + " " + period, pad, y + l1Size, p);
+        y += l1Size * 2.0f;
 
-        // 行 2: 时间数字（大）
-        float timeSize = h * 0.22f;
-        p.setTextSize(timeSize);
-        cv.drawText(hhmm, x_pad, yy + timeSize, p);
-        yy += timeSize * 1.3f;
+        // 行 2: 时间（特大粗体）
+        float l2Size = h * 0.28f;
+        p.setTextSize(l2Size);
+        p.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        p.setFakeBoldText(true);
+        p.setStrokeWidth(1.5f);
+        p.setStyle(Paint.Style.FILL_AND_STROKE);
+        cv.drawText(time, pad, y + l2Size, p);
+        y += l2Size * 1.4f;
 
-        // 行 3: 公历日期 + 农历
-        float dateSize = h * 0.07f;
-        p.setTextSize(dateSize);
-        String dateLine = solar + "  " + lunar;
-        cv.drawText(dateLine, x_pad, yy + dateSize, p);
-        yy += dateSize * 1.8f;
+        // 行 3: 日期 + 农历（无前缀）
+        float l3Size = h * 0.07f;
+        p.setTextSize(l3Size);
+        p.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        p.setFakeBoldText(false);
+        p.setStyle(Paint.Style.FILL);
+        p.setStrokeWidth(0);
+        cv.drawText(date + "  " + lunar, pad, y + l3Size, p);
+        y += l3Size * 2.0f;
 
-        // 行 4: 天气
+        // 行 4: 天气（有数据则显示）
         if (!weather.isEmpty()) {
-            float wxSize = h * 0.06f;
-            p.setTextSize(wxSize);
-            cv.drawText(weather, x_pad, yy + wxSize, p);
+            float l4Size = h * 0.06f;
+            p.setTextSize(l4Size);
+            cv.drawText(weather, pad, y + l4Size, p);
         }
 
         return out;
     }
 
-    private static final float x_pad = 30f;
-
-    /** 农历字符串（ICU ChineseCalendar） */
+    /** 农历（无"农历"前缀，直接"八月廿四"格式） */
     private static String getLunarString() {
         try {
             ChineseCalendar cc = new ChineseCalendar(new Date());
@@ -196,7 +198,7 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                     : day == 20 ? "二十"
                     : day <= 29 ? "廿" + days[day - 21]
                     : "三十";
-            return "农历" + lm + ld;
+            return lm + ld;
         } catch (Throwable t) {
             return "";
         }
