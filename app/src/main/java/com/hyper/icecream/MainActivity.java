@@ -124,7 +124,7 @@ public class MainActivity extends Activity {
         findViewById(R.id.btn_perm).setOnClickListener(v -> {
             try {
                 startActivity(new Intent("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION",
-                        Uri.parse("package:com.zcode.themetool")));
+                        Uri.parse("package:com.hyper.icecream")));
             } catch (Throwable t) {
                 startActivity(new Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION"));
             }
@@ -413,7 +413,7 @@ public class MainActivity extends Activity {
             final boolean rootOk = id.contains("uid=0");
             String lsp = rootOk ? execSu(
                     "test -d /data/adb/lspd && echo LSP-DIR; "
-                    + "grep -c com.zcode.themetool /data/adb/lspd/config/modules_config.db 2>/dev/null") : "";
+                    + "grep -c com.hyper.icecream /data/adb/lspd/config/modules_config.db 2>/dev/null") : "";
             final boolean lspInstalled = lsp.contains("LSP-DIR");
             int cnt = -1;
             try {
@@ -1304,11 +1304,11 @@ public class MainActivity extends Activity {
     private void exportWidgetAssets() {
         try {
             String uid = getPackageManager().getPackageInfo(getPackageName(), 0).applicationInfo.uid + "";
-            String script = "mkdir -p /data/data/com.zcode.themetool/files/widget_assets/clock_2x4\n"
-                    + "cd /data/data/com.zcode.themetool/files/widget_assets/clock_2x4\n"
+            String script = "mkdir -p /data/data/com.hyper.icecream/files/widget_assets/clock_2x4\n"
+                    + "cd /data/data/com.hyper.icecream/files/widget_assets/clock_2x4\n"
                     + "unzip -o /data/system/theme/clock_2x4 'src/num/*' 'manifest.xml' >/dev/null 2>&1\n"
-                    + "chown -R " + uid + ":" + uid + " /data/data/com.zcode.themetool/files/widget_assets\n"
-                    + "chmod -R 755 /data/data/com.zcode.themetool/files/widget_assets\n"
+                    + "chown -R " + uid + ":" + uid + " /data/data/com.hyper.icecream/files/widget_assets\n"
+                    + "chmod -R 755 /data/data/com.hyper.icecream/files/widget_assets\n"
                     + "echo WIDGET-ASSETS-OK\n";
             String r = execSu(script);
             if (r.contains("WIDGET-ASSETS-OK")) {
