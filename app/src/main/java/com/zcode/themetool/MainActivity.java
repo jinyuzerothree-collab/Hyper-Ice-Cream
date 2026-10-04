@@ -330,51 +330,54 @@ public class MainActivity extends Activity {
     private LinearLayout rootCard, lspCard;
     private TextView permDetail;
 
-    /** KSU 风格状态卡：大方块图标 + 标题 + 明细 */
+    /** LSPosed 风格状态卡：浅绿/灰底 + 大粗标题 + 大圆勾图标 */
     private LinearLayout buildPermCard(LinearLayout parent, boolean isRoot) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(android.view.Gravity.CENTER);
-        card.setPadding(dp(10), dp(14), dp(10), dp(14));
+        card.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.START);
+        card.setPadding(dp(20), dp(18), dp(20), dp(18));
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(20));
-        bg.setColor(isNight() ? 0xF2202028 : 0xFAFFFFFF);
+        bg.setCornerRadius(dp(24));
+        bg.setColor(0xFFE8F5E9); // LSPosed 式浅绿
         card.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.MATCH_PARENT, 1f);
         if (!isRoot) lp.leftMargin = dp(10);
         card.setLayoutParams(lp);
 
-        TextView badge = new TextView(this);
-        badge.setTextSize(26);
-        badge.setTypeface(Typeface.DEFAULT_BOLD);
-        badge.setGravity(android.view.Gravity.CENTER);
-        badge.setTextColor(0xFFFFFFFF);
-        GradientDrawable bbg = new GradientDrawable();
-        bbg.setCornerRadius(dp(14));
-        bbg.setColor(0x33000000);
-        badge.setBackground(bbg);
-        badge.setText("?");
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dp(48), dp(48));
-        blp.bottomMargin = dp(8);
-        badge.setLayoutParams(blp);
-        badge.setTag("badge");
-        card.addView(badge);
+        // 右侧大圆勾（占卡片右半，与 LSPosed 一致）
+        TextView checkIcon = new TextView(this);
+        checkIcon.setTextSize(40);
+        checkIcon.setTypeface(Typeface.DEFAULT_BOLD);
+        checkIcon.setTextColor(0xFF4CAF50);
+        checkIcon.setGravity(android.view.Gravity.CENTER);
+        checkIcon.setText("✓");
+        checkIcon.setTag("check_icon");
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(dp(52), dp(52));
+        clp.gravity = android.view.Gravity.CENTER_VERTICAL
+                | android.view.Gravity.END;
+        clp.rightMargin = dp(4);
+        checkIcon.setLayoutParams(clp);
+        card.addView(checkIcon);
 
         TextView title = new TextView(this);
         title.setText(L10n.t(this, isRoot ? "root_state" : "lsp_state"));
-        title.setTextSize(14);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        title.setGravity(android.view.Gravity.CENTER);
+        title.setTextSize(20);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(0xFF111111);
         title.setTag("title");
-        card.addView(title);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.bottomMargin = dp(6);
+        title.setLayoutParams(tlp);
+        card.addView(title, 0); // 标题在最前
 
         TextView detail = new TextView(this);
-        detail.setTextSize(10);
-        detail.setGravity(android.view.Gravity.CENTER);
-        detail.setTextColor(0x99666666);
+        detail.setTextSize(14);
+        detail.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        detail.setTextColor(0xFF555555);
         detail.setTag("detail");
-        card.addView(detail);
+        card.addView(detail, 1); // 明细第二行
 
         parent.addView(card);
         return card;
@@ -382,19 +385,22 @@ public class MainActivity extends Activity {
 
     private void setCardState(LinearLayout card, boolean ok, String detail) {
         if (card == null) return;
+        // 背景色：绿=OK，灰=未授权
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(24));
+        bg.setColor(ok ? 0xFFE8F5E9 : 0xFFF0F0F0);
+        card.setBackground(bg);
+        // 更新勾/叉图标
         for (int i = 0; i < card.getChildCount(); i++) {
             View ch = card.getChildAt(i);
-            Object tag = ch.getTag();
-            if ("badge".equals(tag)) {
-                GradientDrawable bg = new GradientDrawable();
-                bg.setCornerRadius(dp(14));
-                bg.setColor(ok ? 0xFF34C759 : 0x33888888);
-                ch.setBackground(bg);
+            if (ch.getTag() != null && "check_icon".equals(ch.getTag())) {
                 ((TextView) ch).setText(ok ? "✓" : "✕");
-            } else if ("detail".equals(tag)) {
+                ((TextView) ch).setTextColor(ok ? 0xFF4CAF50 : 0xFFBDBDBD);
+            } else if (ch.getTag() != null && "detail".equals(ch.getTag())) {
                 ((TextView) ch).setText(detail);
-            } else if ("title".equals(tag)) {
-                ((TextView) ch).setText(L10n.t(this, ok ? (card == rootCard ? "root_ok" : "lsp_ok")
+            } else if (ch.getTag() != null && "title".equals(ch.getTag())) {
+                ((TextView) ch).setText(L10n.t(this, ok
+                        ? (card == rootCard ? "root_ok" : "lsp_ok")
                         : (card == rootCard ? "root_no" : "lsp_no")));
             }
         }
