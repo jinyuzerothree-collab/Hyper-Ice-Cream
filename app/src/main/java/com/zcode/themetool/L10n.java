@@ -67,6 +67,22 @@ public class L10n {
         put("official", "官方", "官方", "Official");
         put("release", "release", "release", "release");
         put("dev", "开发者", "開發者", "Developer");
+        // v2.9 工具页权限卡 / Dock 样式
+        put("perm_section", "权限状态", "權限狀態", "Permissions");
+        put("perm_check", "检查权限授予", "檢查權限授予", "Check permissions");
+        put("root_state", "Root 权限", "Root 權限", "Root access");
+        put("lsp_state", "LSP 权限", "LSP 權限", "LSPosed access");
+        put("root_ok", "Root 权限已授予", "Root 權限已授予", "Root granted");
+        put("root_no", "Root 未授予", "Root 未授予", "Root not granted");
+        put("lsp_ok", "LSP 权限已授予", "LSP 權限已授予", "LSPosed granted");
+        put("lsp_no", "LSP 未授予", "LSP 未授予", "LSPosed not granted");
+        put("dock_section", "Dock 常驻图标样式（实验性）", "Dock 常駐圖標樣式（實驗性）", "Dock resident icons (experimental)");
+        put("dock_none", "不改动", "不改動", "No change");
+        put("dock_hidden", "隐藏常驻图标", "隱藏常駐圖標", "Hide resident icons");
+        put("dock_round", "圆角背景风格", "圓角背景風格", "Rounded background style");
+        put("dock_note", "部署主题时也会询问；桌面为 Flutter 渲染，两种样式的实际生效均待验证。", "部署主題時也會詢問；桌面為 Flutter 渲染，兩種樣式的實際生效均待驗證。", "Also asked during deploy; launcher is Flutter-rendered, both styles pending verification.");
+        put("dock_ask_title", "Dock 常驻图标样式", "Dock 常駐圖標樣式", "Dock resident icons");
+        put("dock_ask_msg", "本次部署主题时，是否同时调整 Dock 常驻图标？（实验性）", "本次部署主題時，是否同時調整 Dock 常駐圖標？（實驗性）", "Adjust dock resident icons with this deploy? (experimental)");
     }
 
     public static String t(Context c, String key) {

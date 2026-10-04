@@ -251,31 +251,70 @@ public class MainActivity extends Activity {
 
     private void buildToolExtras() {
         LinearLayout tools = (LinearLayout) ((ScrollView) findViewById(R.id.page_tools)).getChildAt(0);
+
+        // ===== 权限状态卡（KSU 主页风格：两个大方块 + 检查行） =====
+        TextView pt = new TextView(this);
+        pt.setText(L10n.t(this, "perm_section"));
+        pt.setTextSize(14);
+        pt.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+        pt.setPadding(0, dp(16), 0, dp(6));
+        tools.addView(pt);
+
+        LinearLayout cards = new LinearLayout(this);
+        cards.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams clp0 = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        clp0.topMargin = dp(4);
+        cards.setLayoutParams(clp0);
+
+        rootCard = buildPermCard(cards, true);
+        lspCard = buildPermCard(cards, false);
+        tools.addView(cards, 1); // 紧跟「工具箱」标题
+
+        Button checkPerm = new Button(this);
+        checkPerm.setText(L10n.t(this, "perm_check"));
+        checkPerm.setOnClickListener(v -> checkPerms(true));
+        tools.addView(checkPerm, 2);
+        permDetail = new TextView(this);
+        permDetail.setTextSize(11);
+        permDetail.setPadding(dp(4), 0, 0, 0);
+        tools.addView(permDetail, 3);
+        checkPerms(false); // 静默首查
+
+        // ===== Dock 常驻图标样式（双方案：隐藏 / 圆角背景；部署主题时也会询问） =====
         TextView t = new TextView(this);
-        t.setText("Dock 常驻图标（改后需重启桌面）");
+        t.setText(L10n.t(this, "dock_section"));
         t.setTextSize(14);
-        t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        t.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
         t.setPadding(0, dp(16), 0, dp(6));
         tools.addView(t);
-        String[][] docks = {{"hide_phone", "隐藏：手机（远控）"}, {"hide_xiaoai", "隐藏：超级小爱"}, {"hide_search", "隐藏：搜索"}};
-        for (String[] d : docks) {
-            android.widget.CheckBox cb = new android.widget.CheckBox(this);
-            cb.setText(d[1]);
-            cb.setChecked("1".equals(dockConfGet(d[0])));
-            cb.setOnCheckedChangeListener((b, c) -> {
-                String v = c ? "1" : "0";
-                String DOCK = "/data/system/hypericecream_dock.conf";
-                execSu("sed -i 's/" + d[0] + "=[01]/" + d[0] + "=" + v + "/' " + DOCK
-                        + " || echo " + d[0] + "=" + v + " > " + DOCK);
-                log(d[0] + " = " + v + "（重启桌面生效）");
-            });
-            tools.addView(cb);
+        final String[] opts = {L10n.t(this, "dock_none"), L10n.t(this, "dock_hidden"), L10n.t(this, "dock_round")};
+        final android.widget.RadioGroup rg = new android.widget.RadioGroup(this);
+        int cur = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE).getInt("dock_style", 0);
+        for (int i = 0; i < opts.length; i++) {
+            android.widget.RadioButton rb = new android.widget.RadioButton(this);
+            rb.setText(opts[i]);
+            rb.setId(100 + i);
+            rb.setChecked(cur == i);
+            rg.addView(rb);
         }
-        // ===== 旧组件白名单管理（替代假信号位） =====
+        rg.setOnCheckedChangeListener((g, id) -> {
+            int style = id - 100;
+            getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE).edit().putInt("dock_style", style).apply();
+            applyDockStyleToConf(style);
+            log("Dock 样式 = " + opts[style] + "（重启桌面生效；实验性，桌面支持性待验证）");
+        });
+        tools.addView(rg);
+        TextView dockNote = new TextView(this);
+        dockNote.setText(L10n.t(this, "dock_note"));
+        dockNote.setTextSize(11);
+        tools.addView(dockNote);
+
+        // ===== 旧组件白名单管理 =====
         TextView t2 = new TextView(this);
         t2.setText("旧版小组件白名单（恢复到新桌面）");
         t2.setTextSize(14);
-        t2.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        t2.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
         t2.setPadding(0, dp(16), 0, dp(6));
         tools.addView(t2);
         Button wl = new Button(this);
@@ -286,6 +325,143 @@ public class MainActivity extends Activity {
         wlNote.setText("勾选后写入白名单并保存；模块作用域需含\ncom.miui.home + android(系统框架)，重启生效。");
         wlNote.setTextSize(11);
         tools.addView(wlNote);
+    }
+
+    private LinearLayout rootCard, lspCard;
+    private TextView permDetail;
+
+    /** KSU 风格状态卡：大方块图标 + 标题 + 明细 */
+    private LinearLayout buildPermCard(LinearLayout parent, boolean isRoot) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(android.view.Gravity.CENTER);
+        card.setPadding(dp(10), dp(14), dp(10), dp(14));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(20));
+        bg.setColor(isNight() ? 0xF2202028 : 0xFAFFFFFF);
+        card.setBackground(bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        if (!isRoot) lp.leftMargin = dp(10);
+        card.setLayoutParams(lp);
+
+        TextView badge = new TextView(this);
+        badge.setTextSize(26);
+        badge.setTypeface(Typeface.DEFAULT_BOLD);
+        badge.setGravity(android.view.Gravity.CENTER);
+        badge.setTextColor(0xFFFFFFFF);
+        GradientDrawable bbg = new GradientDrawable();
+        bbg.setCornerRadius(dp(14));
+        bbg.setColor(0x33000000);
+        badge.setBackground(bbg);
+        badge.setText("?");
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dp(48), dp(48));
+        blp.bottomMargin = dp(8);
+        badge.setLayoutParams(blp);
+        badge.setTag("badge");
+        card.addView(badge);
+
+        TextView title = new TextView(this);
+        title.setText(L10n.t(this, isRoot ? "root_state" : "lsp_state"));
+        title.setTextSize(14);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        title.setGravity(android.view.Gravity.CENTER);
+        title.setTag("title");
+        card.addView(title);
+
+        TextView detail = new TextView(this);
+        detail.setTextSize(10);
+        detail.setGravity(android.view.Gravity.CENTER);
+        detail.setTextColor(0x99666666);
+        detail.setTag("detail");
+        card.addView(detail);
+
+        parent.addView(card);
+        return card;
+    }
+
+    private void setCardState(LinearLayout card, boolean ok, String detail) {
+        if (card == null) return;
+        for (int i = 0; i < card.getChildCount(); i++) {
+            View ch = card.getChildAt(i);
+            Object tag = ch.getTag();
+            if ("badge".equals(tag)) {
+                GradientDrawable bg = new GradientDrawable();
+                bg.setCornerRadius(dp(14));
+                bg.setColor(ok ? 0xFF34C759 : 0x33888888);
+                ch.setBackground(bg);
+                ((TextView) ch).setText(ok ? "✓" : "✕");
+            } else if ("detail".equals(tag)) {
+                ((TextView) ch).setText(detail);
+            } else if ("title".equals(tag)) {
+                ((TextView) ch).setText(L10n.t(this, ok ? (card == rootCard ? "root_ok" : "lsp_ok")
+                        : (card == rootCard ? "root_no" : "lsp_no")));
+            }
+        }
+    }
+
+    /** 检查 Root 与 LSP 授权（su 可用性 + LSPosed 目录 + 本模块注册状态） */
+    private void checkPerms(final boolean verbose) {
+        new Thread(() -> {
+            String id = execSu("id");
+            final boolean rootOk = id.contains("uid=0");
+            String lsp = rootOk ? execSu(
+                    "test -d /data/adb/lspd && echo LSP-DIR; "
+                    + "grep -c com.zcode.themetool /data/adb/lspd/config/modules_config.db 2>/dev/null") : "";
+            final boolean lspInstalled = lsp.contains("LSP-DIR");
+            int cnt = -1;
+            try {
+                for (String ln : lsp.split("\n")) {
+                    ln = ln.trim();
+                    if (ln.matches("\\d+")) { cnt = Integer.parseInt(ln); break; }
+                }
+            } catch (Throwable ignored) {
+            }
+            final boolean lspOk = lspInstalled && cnt > 0;
+            final String rootDetail = rootOk ? "su -c id → uid=0" : "su 未授权";
+            final String lspDetail = !lspInstalled ? "未检测到 /data/adb/lspd"
+                    : (cnt > 0 ? "本模块已注册（" + cnt + " 条）" : "本模块未在 LSPosed 注册");
+            runOnUiThread(() -> {
+                setCardState(rootCard, rootOk, rootDetail);
+                setCardState(lspCard, lspOk, lspDetail);
+                if (permDetail != null) {
+                    permDetail.setText("Root: " + rootDetail + "　|　LSPosed: " + lspDetail);
+                }
+                if (verbose) log("权限检查 → Root " + (rootOk ? "✓" : "✕")
+                        + "　LSPosed " + (lspOk ? "✓" : "✕") + "（" + lspDetail + "）");
+            });
+        }).start();
+    }
+
+    /** Dock 样式落盘：0=不改动 1=隐藏三常驻图标 2=圆角背景（后者依赖桌面支持性，实验） */
+    private void applyDockStyleToConf(int style) {
+        String DOCK = "/data/system/hypericecream_dock.conf";
+        String v = style == 1 ? "1" : "0";
+        execSu("sed -i 's/hide_phone=[01]/hide_phone=" + v + "/;s/hide_xiaoai=[01]/hide_xiaoai=" + v
+                + "/;s/hide_search=[01]/hide_search=" + v + "/' " + DOCK
+                + " || printf 'hide_phone=%s\\nhide_xiaoai=%s\\nhide_search=%s\\n' " + v + " " + v + " " + v + " > " + DOCK);
+        // 样式 2（圆角背景）需要桌面侧支持：记录选择，待 launcher prefs 调研落地后生效
+        getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE).edit().putInt("dock_style", style).apply();
+    }
+
+    /** 部署主题时同时询问 Dock 样式（用户要求：加载主题的时候同时询问） */
+    private void askDockStyleThen(final Runnable next) {
+        final String[] opts = {L10n.t(this, "dock_none"), L10n.t(this, "dock_hidden"), L10n.t(this, "dock_round")};
+        int cur = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE).getInt("dock_style", 0);
+        new AlertDialog.Builder(this)
+                .setTitle(L10n.t(this, "dock_ask_title"))
+                .setMessage(L10n.t(this, "dock_ask_msg"))
+                .setSingleChoiceItems(opts, cur, null)
+                .setPositiveButton("确定", (d, w) -> {
+                    int sel = ((AlertDialog) d).getListView().getCheckedItemPosition();
+                    if (sel < 0) sel = cur;
+                    getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE).edit().putInt("dock_style", sel).apply();
+                    applyDockStyleToConf(sel);
+                    log("本次部署采用 Dock 样式: " + opts[sel]);
+                    next.run();
+                })
+                .setNegativeButton("跳过", (d, w) -> next.run())
+                .show();
     }
 
 
@@ -923,6 +1099,11 @@ public class MainActivity extends Activity {
 
     // ---------- 部署 ----------
     private void doDeploy() {
+        // 用户要求：加载主题的同时询问 Dock 常驻图标样式
+        askDockStyleThen(this::doDeployInner);
+    }
+
+    private void doDeployInner() {
         List<Object[]> selected = new ArrayList<>();
         for (int i = 0; i < compsBox.getChildCount(); i++) {
             Object child = compsBox.getChildAt(i);
