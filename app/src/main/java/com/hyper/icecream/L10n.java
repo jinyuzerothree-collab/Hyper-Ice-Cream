@@ -83,6 +83,30 @@ public class L10n {
         put("dock_note", "部署主题时也会询问；桌面为 Flutter 渲染，两种样式的实际生效均待验证。", "部署主題時也會詢問；桌面為 Flutter 渲染，兩種樣式的實際生效均待驗證。", "Also asked during deploy; launcher is Flutter-rendered, both styles pending verification.");
         put("dock_ask_title", "Dock 常驻图标样式", "Dock 常駐圖標樣式", "Dock resident icons");
         put("dock_ask_msg", "本次部署主题时，是否同时调整 Dock 常驻图标？（实验性）", "本次部署主題時，是否同時調整 Dock 常駐圖標？（實驗性）", "Adjust dock resident icons with this deploy? (experimental)");
+        // v3.1 时钟布局编辑器
+        put("wl_title", "时钟小组件布局编辑", "時鐘小組件佈局編輯", "Clock widget layout editor");
+        put("wl_sub", "每个元素的位置、字号、对齐、颜色都可自由调整，预览即时生效。", "每個元素的位置、字號、對齊、顏色都可自由調整，預覽即時生效。", "Adjust each element's position, size, alignment and color; live preview.");
+        put("wl_el_dow", "星期", "星期", "Weekday");
+        put("wl_el_period", "时段", "時段", "Day period");
+        put("wl_el_time", "时间", "時間", "Time");
+        put("wl_el_date", "日期", "日期", "Date");
+        put("wl_el_lunar", "农历", "農曆", "Lunar date");
+        put("wl_el_weather", "天气", "天氣", "Weather");
+        put("wl_show", "显示", "顯示", "Show");
+        put("wl_pos_x", "位置X", "位置X", "Position X");
+        put("wl_pos_y", "位置Y", "位置Y", "Position Y");
+        put("wl_size", "字号", "字號", "Font size");
+        put("wl_align", "对齐", "對齊", "Align");
+        put("wl_left", "左", "左", "Left");
+        put("wl_center", "中", "中", "Center");
+        put("wl_right", "右", "右", "Right");
+        put("wl_bold", "粗体", "粗體", "Bold");
+        put("wl_color", "颜色", "顏色", "Color");
+        put("wl_reset", "恢复默认", "恢復默認", "Reset defaults");
+        put("wl_preset_theme", "主题复刻", "主題復刻", "Theme replica");
+        put("wl_apply", "保存并应用到桌面", "保存並應用到桌面", "Save & apply to home screen");
+        put("wl_applied", "已应用！桌面未刷新请等待下一分钟或重新添加小组件。", "已應用！桌面未刷新請等待下一分鐘或重新添加小組件。", "Applied! If not refreshed, wait a minute or re-add the widget.");
+        put("wl_note", "时间每分钟自动刷新；若被省电冻结，请把本应用加入省电白名单。", "時間每分鐘自動刷新；若被省電凍結，請把本應用加入省電白名單。", "Time refreshes every minute; whitelist this app if battery saver freezes it.");
     }
 
     public static String t(Context c, String key) {

@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.hyper.icecream"
-    android:versionCode="21"
-    android:versionName="3.0">
+    android:versionCode="22"
+    android:versionName="3.1">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     <queries>
         <intent>
             <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
@@ -23,10 +25,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name="com.hyper.icecream.WidgetLayoutActivity" android:exported="false"/>
         <receiver android:name="com.hyper.icecream.HyperWidgetProvider" android:exported="false" android:label="@string/widget_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
                 <action android:name="android.appwidget.action.APPWIDGET_OPTIONS_CHANGED"/>
+                <action android:name="android.intent.action.TIME_SET"/>
+                <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
+                <action android:name="android.intent.action.DATE_CHANGED"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/hyper_widget_info"/>
         </receiver>

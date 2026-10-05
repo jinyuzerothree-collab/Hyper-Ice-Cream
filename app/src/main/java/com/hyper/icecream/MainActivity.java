@@ -140,6 +140,8 @@ public class MainActivity extends Activity {
         });
         findViewById(R.id.btn_launcher).setOnClickListener(v -> doRestartLauncher());
         findViewById(R.id.btn_pin_widget).setOnClickListener(v -> pinClockWidget());
+        findViewById(R.id.btn_widget_layout).setOnClickListener(v ->
+                startActivity(new android.content.Intent(this, WidgetLayoutActivity.class)));
         buildToolExtras();
 
         pageHome = findViewById(R.id.page_home);

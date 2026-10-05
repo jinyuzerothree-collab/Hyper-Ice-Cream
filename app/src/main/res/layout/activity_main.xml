@@ -211,6 +211,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="添加 Hyper 时钟小组件到桌面（实验性）"/>
+
+            <Button
+                android:id="@+id/btn_widget_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="时钟小组件布局编辑（实验性）"/>
         </LinearLayout>
     </ScrollView>
 
