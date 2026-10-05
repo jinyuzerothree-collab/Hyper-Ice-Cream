@@ -107,6 +107,10 @@ public class L10n {
         put("device_auto", "自动识别", "自動識別", "Auto");
         put("device_tablet", "平板", "平板", "Tablet");
         put("device_phone", "手机", "手機", "Phone");
+        put("about_widget_tools", "时钟小组件工具", "時鐘小組件工具", "Clock widget tools");
+        put("about_widget_tools_sub", "钉选到桌面 + 布局编辑入口（实验性）", "釘選到桌面 + 佈局編輯入口（實驗性）", "Pin-to-home + layout editor entries (experimental)");
+        put("guide_btn", "查看 Agent 使用指南", "查看 Agent 使用指南", "Open Agent guide");
+        put("guide_sub", "把文档发给你的 AI Agent 阅读", "把文檔發給你的 AI Agent 閱讀", "Send this doc to your AI agent");
         put("wl_show", "显示", "顯示", "Show");
         put("wl_pos_x", "左右偏移", "左右偏移", "X offset");
         put("wl_pos_y", "上下偏移", "上下偏移", "Y offset");

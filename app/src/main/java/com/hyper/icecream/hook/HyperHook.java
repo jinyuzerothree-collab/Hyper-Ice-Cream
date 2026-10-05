@@ -33,6 +33,7 @@ public class HyperHook implements IXposedHookLoadPackage {
     private static final String SIZE_FILE = "/data/system/hypericecream_widget_sizes.txt";
     private static final String DOCK_FILE = "/data/system/hypericecream_dock.conf";
     private static final String SIG_FILE = "/data/system/hypericecream_signal.conf";
+    private static final String SIZES_EXTRA_FILE = "/data/system/hypericecream_widget_sizes_extra.conf";
 
     private static volatile Set<String> targets = new HashSet<String>();
     private static volatile java.util.HashMap<String, int[]> sizes =
@@ -41,6 +42,7 @@ public class HyperHook implements IXposedHookLoadPackage {
             new java.util.HashMap<String, String>();
     private static volatile java.util.HashMap<String, String> sigConf =
             new java.util.HashMap<String, String>();
+    private static volatile boolean sizerOn = false;
     private static volatile long lastCheck = 0;
     private static final Set<String> loggedOnce = new HashSet<String>();
     private static final java.util.IdentityHashMap<Object, Object> stash =
@@ -106,6 +108,17 @@ public class HyperHook implements IXposedHookLoadPackage {
                 if (line.isEmpty() || line.startsWith("#") || !line.contains("=")) continue;
                 int i = line.indexOf('=');
                 sg.put(line.substring(0, i).trim(), line.substring(i + 1).trim());
+            }
+            br.close();
+        } catch (Throwable ignored) {
+        }
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.FileReader(SIZES_EXTRA_FILE));
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith("sizer=")) sizerOn = line.endsWith("1");
             }
             br.close();
         } catch (Throwable ignored) {
@@ -233,6 +246,38 @@ public class HyperHook implements IXposedHookLoadPackage {
         setIntIfPresent(providerInfo, "maxResizeWidth", Math.max(w, 5));
         setIntIfPresent(providerInfo, "maxResizeHeight", Math.max(h, 5));
         logOnce("size:" + pkg, "size override " + w + "x" + h + " for " + pkg);
+        applySizerHalve(providerInfo, pkg);
+    }
+
+    /** MiPAD 修复式尺寸优化（致敬 MiPAD小部件修复/nisekana，自研实现）：
+     *  对白名单内三方组件的 span/min/max 全部减半，让恢复的旧组件可缩得更小更贴合桌面 */
+    private static void applySizerHalve(Object providerInfo, String pkg) {
+        if (!sizerOn) return;
+        if (pkg == null || pkg.equals("com.hyper.icecream")) return;
+        if (!targets.contains(pkg)) return;
+        halveInt(providerInfo, "minWidth");
+        halveInt(providerInfo, "minHeight");
+        halveInt(providerInfo, "minResizeWidth");
+        halveInt(providerInfo, "minResizeHeight");
+        halveInt(providerInfo, "maxResizeWidth");
+        halveInt(providerInfo, "maxResizeHeight");
+        setIntIfPresent(providerInfo, "targetCellWidth", 1);
+        setIntIfPresent(providerInfo, "targetCellHeight", 1);
+        logOnce("sizer:" + pkg, "sizer halve applied for " + pkg);
+    }
+
+    private static void halveInt(Object obj, String field) {
+        for (Class<?> c = obj.getClass(); c != null; c = c.getSuperclass()) {
+            try {
+                Field f = c.getDeclaredField(field);
+                f.setAccessible(true);
+                int cur = f.getInt(obj);
+                f.setInt(obj, Math.max(1, cur / 2));
+                return;
+            } catch (NoSuchFieldException ignored) {
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     private static boolean setIntIfPresent(Object obj, String field, int val) {

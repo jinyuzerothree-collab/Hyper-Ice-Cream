@@ -111,13 +111,13 @@ public class WidgetLayout {
     public String serialize() {
         try {
             JSONObject root = new JSONObject();
-            root.put("v", 2);
+            root.put("v", 3);
             JSONObject e = new JSONObject();
             for (String k : KEYS) e.put(k, el(k).toJson());
             root.put("els", e);
             return root.toString();
         } catch (Throwable t) {
-            return "{\"v\":2}";
+            return "{\"v\":3}";
         }
     }
 
@@ -126,12 +126,17 @@ public class WidgetLayout {
         if (s == null || s.isEmpty()) return;
         try {
             JSONObject root = new JSONObject(s);
-            if (root.optInt("v", 0) != 2) return; // 旧格式直接回默认
+            int v = root.optInt("v", 0);
+            if (v != 2 && v != 3) return; // 更旧格式直接回默认
             JSONObject e = root.optJSONObject("els");
             if (e == null) return;
             for (String k : KEYS) {
                 JSONObject o = e.optJSONObject(k);
                 if (o != null) els.put(k, El.from(o));
+            }
+            if (v == 2) {
+                // v2 时代 wxicon 默认关闭且会被序列化保存；v3 起默认开启（用户要求显示）
+                els.put("wxicon", new El());
             }
         } catch (Throwable ignored) {
         }

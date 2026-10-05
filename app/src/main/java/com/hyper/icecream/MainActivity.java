@@ -180,6 +180,24 @@ public class MainActivity extends Activity {
             glassTabs.get(1).setVisibility(vis ? View.VISIBLE : View.GONE);
         }
         if (!vis && currentPage == 1) switchPage(0);
+        boolean wt = widgetToolVisible();
+        findViewById(R.id.btn_pin_widget).setVisibility(wt ? View.VISIBLE : View.GONE);
+        findViewById(R.id.btn_widget_layout).setVisibility(wt ? View.VISIBLE : View.GONE);
+    }
+
+    /** 时钟小组件工具（钉选+布局编辑）三态：auto=平板显示/手机隐藏；on=始终显示；off=始终隐藏 */
+    private static final String[] WIDGET_TOOL_MODES = {"auto", "on", "off"};
+
+    private String widgetToolMode() {
+        return getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                .getString("widget_tool_mode", "auto");
+    }
+
+    private boolean widgetToolVisible() {
+        String m = widgetToolMode();
+        if ("on".equals(m)) return true;
+        if ("off".equals(m)) return false;
+        return !isPhoneMode(); // auto
     }
 
     /** 搭载端：auto 按屏幕最小宽判定；phone 隐藏平板专属（Dock 补丁）功能 */
@@ -292,12 +310,63 @@ public class MainActivity extends Activity {
                     String r = execSu("echo -e '" + body + "' > "
                             + "/data/system/hypericecream_widget_whitelist.txt && "
                             + "chmod 644 /data/system/hypericecream_widget_whitelist.txt && echo WL-SAVED");
-                    log(r.contains("WL-SAVED")
-                            ? "✅ 白名单已保存（" + n + " 个应用 + 自身）。重启平板后旧组件出现在小部件列表。"
-                            : "白名单保存失败: " + r);
+                    if (r.contains("WL-SAVED")) {
+                        log("✅ 白名单已保存（" + n + " 个应用 + 自身）。重启平板后旧组件出现在小部件列表。");
+                        askWhitelistEnhance();
+                    } else {
+                        log("白名单保存失败: " + r);
+                    }
                 })
                 .setNegativeButton("取消", null)
                 .show();
+    }
+
+    /** 白名单保存后的增强面板：堆叠说明 + MiPAD 修复式尺寸优化（平板专属，自研等价实现） */
+    private void askWhitelistEnhance() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(8);
+        box.setPadding(p, 0, p, 0);
+
+        TextView t1 = new TextView(this);
+        t1.setText("☑ 与小米原生组件堆叠 —— 已内置（自研 miuiWidget 注入），白名单内的组件自动获得，无需额外操作。");
+        t1.setTextSize(13);
+        box.addView(t1);
+
+        android.widget.CheckBox sizer = new android.widget.CheckBox(this);
+        boolean cur = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                .getBoolean("mipad_sizer", false);
+        sizer.setText("☑ MiPAD 小部件修复式尺寸优化（平板专属）");
+        sizer.setChecked(cur);
+        box.addView(sizer);
+
+        TextView t2 = new TextView(this);
+        t2.setText("说明：等效实现 MiPAD小部件修复（nisekana）的 span 减半思路——通过系统侧尺寸覆盖让恢复的旧组件可缩放、更贴合桌面。致敬原作，本项目独立实现。");
+        t2.setTextSize(11);
+        box.addView(t2);
+
+        new AlertDialog.Builder(this)
+                .setTitle("组件恢复增强（可选）")
+                .setView(box)
+                .setNegativeButton("跳过", null)
+                .setPositiveButton("应用", (d, w) -> {
+                    boolean on = sizer.isChecked();
+                    getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                            .edit().putBoolean("mipad_sizer", on).apply();
+                    writeSizerConf(on);
+                })
+                .show();
+    }
+
+    /** MiPAD 修复式尺寸优化开关：写 conf 供 HyperHook 尺寸覆盖读取（system_server 通道，不依赖 home 注入） */
+    private void writeSizerConf(boolean on) {
+        String r = execSu("printf 'sizer=" + (on ? 1 : 0) + "\n' > /data/system/hypericecream_widget_sizes_extra.conf"
+                + " && chmod 644 /data/system/hypericecream_widget_sizes_extra.conf"
+                + " && echo SIZER-OK");
+        log(r.contains("SIZER-OK")
+                ? (on ? "✅ MiPAD 修复式尺寸优化已启用（重启桌面生效）。"
+                      : "MiPAD 修复式尺寸优化已关闭。")
+                : "写入失败: " + r);
     }
 
     private void buildToolExtras() {
@@ -449,6 +518,22 @@ public class MainActivity extends Activity {
 
         TextView st1 = new TextView(this);
         TextView st2 = new TextView(this);
+        TextView guide = new TextView(this);
+        guide.setText("📖 查看 Agent 使用指南（发给你的 AI Agent 阅读）");
+        guide.setTextSize(13);
+        guide.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+        guide.setTextColor(0xFF1E88E5);
+        guide.setPadding(0, dp(8), 0, 0);
+        guide.setOnClickListener(v -> {
+            try {
+                android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://github.com/jinyuzerothree-collab/Hyper-Ice-Cream/blob/main/docs/AGENT_GUIDE.md"));
+                startActivity(i);
+            } catch (Throwable ig) {
+            }
+        });
+        box.addView(guide);
+
         TextView st3 = new TextView(this);
         Runnable refresh = () -> {
             boolean en = sp.getBoolean("unlock_enabled", false);
@@ -482,9 +567,8 @@ public class MainActivity extends Activity {
                     }
                     if (writeUnlockConf(pin, true)) {
                         sp.edit().putBoolean("unlock_enabled", true).putString("unlock_pin", pin).apply();
-                        log("\u2705 开机自动跳过已启用（重启生效，需模块作用域含 SystemUI）。");
+                        log("\u2705 开机自动跳过已启用（重启生效，需模块作用域含 SystemUI）。状态下次打开本面板可见。");
                     }
-                    askUnlockPin(); // 重建面板显示最新状态
                 })
                 .show();
     }
@@ -1400,7 +1484,8 @@ public class MainActivity extends Activity {
             String n = (String) c[0];
             if (WIDGET_PATTERN.matcher(n).matches() || n.startsWith("gadgets/")) widgets.add(c);
         }
-        if (widgets.isEmpty()) {
+        if (widgets.isEmpty() || !widgetToolVisible()) {
+            // 时钟工具关闭（或无组件）时不询问尺寸，用默认，避免打扰
             runDeploy(sel, widgetSizes);
             return;
         }

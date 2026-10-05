@@ -169,6 +169,9 @@ public class AboutPage {
         body.addView(sectionLabel(act, night, L10n.t(act, "device_mode")));
         LinearLayout devMode = whiteCard(act, night);
         devMode.addView(modeRow(act, night));
+        devMode.addView(modeToggleRow(act, night, L10n.t(act, "about_widget_tools"),
+                L10n.t(act, "about_widget_tools_sub"), "widget_tool_mode",
+                WIDGET_TOOL_NAMES, WIDGET_TOOL_VALUES));
         devMode.addView(switchRow(act, night, L10n.t(act, "about_community"),
                 L10n.t(act, "about_community_sub"), "show_community",
                 new Runnable() {
@@ -509,6 +512,52 @@ public class AboutPage {
                     .setTitle(L10n.t(act, "language"))
                     .setItems(names, (d, w) -> {
                         L10n.set(act, opts[w]);
+                        act.recreate();
+                    })
+                    .show();
+        });
+        return r;
+    }
+
+    private static final String[] WIDGET_TOOL_NAMES = {
+            "自动识别", "始终显示", "始终隐藏"};
+    private static final String[] WIDGET_TOOL_VALUES = {"auto", "on", "off"};
+
+    /** 三态选择行（自动/开/关），prefs string key */
+    private static View modeToggleRow(final Activity act, boolean night, String label,
+                                      String sub, final String key,
+                                      final String[] names, final String[] values) {
+        LinearLayout r = new LinearLayout(act);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(0, dp(act, 10), 0, dp(act, 10));
+        LinearLayout col = new LinearLayout(act);
+        col.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        col.setLayoutParams(clp);
+        String cur = act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                .getString(key, "auto");
+        String curName = names[0];
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(cur)) curName = names[i];
+        }
+        col.addView(txt(act, label, 16, true, night ? 0xFFF0F0F0 : 0xFF111111, sub == null ? 0 : 2));
+        if (sub != null) col.addView(txt(act, sub + "（当前：" + curName + "）", 12, true,
+                night ? 0xAAFFFFFF : 0xAA333333, 0));
+        r.addView(col);
+        TextView chev = new TextView(act);
+        chev.setText("›");
+        chev.setTextSize(20);
+        chev.setTypeface(Typeface.DEFAULT_BOLD);
+        chev.setTextColor(night ? 0x88FFFFFF : 0x88000000);
+        r.addView(chev);
+        r.setOnClickListener(v -> {
+            new android.app.AlertDialog.Builder(act)
+                    .setTitle(label)
+                    .setItems(names, (d, w) -> {
+                        act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                                .edit().putString(key, values[w]).apply();
                         act.recreate();
                     })
                     .show();
