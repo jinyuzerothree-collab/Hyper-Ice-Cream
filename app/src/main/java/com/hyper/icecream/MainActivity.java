@@ -1700,8 +1700,10 @@ public class MainActivity extends Activity {
                 isCommunity = true;
                 log("（与社区已有主题 sha256 一致，不再贡献）");
             }
-            if (!communityVisible()) {
-                // 社区功能未开启（关于页实验开关），不打扰
+            boolean askShare = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                    .getBoolean("ask_share", true);
+            if (!communityVisible() || !askShare) {
+                // 社区功能未开启，或用户关闭了分享询问，不打扰
                 pendingCommunityFile = null;
             } else if (!isCommunity && lastMeta != null) {
                 new AlertDialog.Builder(this)

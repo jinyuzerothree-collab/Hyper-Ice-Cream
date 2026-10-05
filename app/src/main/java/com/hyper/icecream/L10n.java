@@ -102,6 +102,8 @@ public class L10n {
         put("about_exp", "实验性功能", "實驗性功能", "Experimental");
         put("about_community", "社区主题库", "社區主題庫", "Community themes");
         put("about_community_sub", "开启后底栏显示社区入口（默认关闭）", "開啟後底欄顯示社區入口（默認關閉）", "Show the community tab in dock (off by default)");
+        put("about_ask_share", "是否询问分享主题", "是否詢問分享主題", "Ask to share themes");
+        put("about_ask_share_sub", "部署成功后弹窗询问是否贡献到社区（默认开）", "部署成功後彈窗詢問是否貢獻到社區（默認開）", "Prompt after deploy (default on)");
         put("device_mode", "搭载端", "搭載端", "Device profile");
         put("device_mode_sub", "决定显示哪套功能（自动按屏幕识别）", "決定顯示哪套功能（自動按屏幕識別）", "Choose which feature set to show (auto-detected)");
         put("device_auto", "自动识别", "自動識別", "Auto");

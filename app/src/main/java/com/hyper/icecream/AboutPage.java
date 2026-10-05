@@ -181,6 +181,8 @@ public class AboutPage {
                         a.recreate();
                     }
                 }));
+        devMode.addView(switchRow(act, night, L10n.t(act, "about_ask_share"),
+                L10n.t(act, "about_ask_share_sub"), "ask_share", null));
         body.addView(cardWrap(act, devMode));
 
         // ===== 译者 =====
@@ -633,15 +635,128 @@ public class AboutPage {
                     L10n.t(act, "device_phone")};
             new android.app.AlertDialog.Builder(act)
                     .setTitle(L10n.t(act, "device_mode"))
-                    .setMessage(L10n.t(act, "device_mode_sub"))
                     .setItems(names, (d, w) -> {
-                        act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
-                                .edit().putString("device_mode", opts[w]).apply();
-                        act.recreate();
+                        confirmDeviceMode(act, opts[w], names[w]);
                     })
                     .show();
         });
         return r;
+    }
+
+    private static boolean hardwareIsTablet(Activity act) {
+        return act.getResources().getConfiguration().smallestScreenWidthDp >= 600;
+    }
+
+    /** 搭载端切换：与当前硬件一致时直接生效；切换到不符硬件的模式才弹详细警告 */
+    private static void confirmDeviceMode(final Activity act, String mode, String name) {
+        boolean hwTablet = hardwareIsTablet(act);
+        boolean same = act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                .getString("device_mode", "auto").equals(mode);
+        if (same) {
+            android.widget.Toast.makeText(act, "已经是「" + name + "」了", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boolean matchesHardware = ("tablet".equals(mode)) == hwTablet;
+        if ("auto".equals(mode) || matchesHardware) {
+            act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                    .edit().putString("device_mode", mode).apply();
+            android.widget.Toast.makeText(act, "搭载端已切换：" + name, android.widget.Toast.LENGTH_SHORT).show();
+            act.recreate();
+            return;
+        }
+        String msg;
+        if ("phone".equals(mode)) {
+            msg = "你正在平板上选择「手机模式」。\n\n" +
+                    "该模式只保留通用功能（主题部署 / 时钟小组件 / 图标包导入 / 开机跳密码 / 社区），\n" +
+                    "并隐藏平板专属功能（Dock 图标隐藏、旧版组件恢复、大图标解锁——这些依赖平板桌面结构）。\n\n" +
+                    "适用：在小米手机上使用本工具。确定要切换吗？";
+        } else {
+            msg = "你正在手机上选择「平板模式」。\n\n" +
+                    "该模式会显示全部功能（Dock 图标隐藏 / 旧版组件恢复 / 大图标解锁等），\n" +
+                    "但这些功能依赖平板桌面结构，在手机上无效甚至可能出现异常界面。\n\n" +
+                    "仅建议测试用途。确定要切换吗？";
+        }
+        new android.app.AlertDialog.Builder(act)
+                .setTitle("切换到：" + name + "（与当前设备不符）")
+                .setMessage(msg)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("我了解，继续切换", (d, w) -> {
+                    act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                            .edit().putString("device_mode", mode).apply();
+                    android.widget.Toast.makeText(act, "搭载端已切换：" + name, android.widget.Toast.LENGTH_SHORT).show();
+                    act.recreate();
+                })
+                .show();
+    }
+
+    /** 时钟实现方案三选项行：native / experimental / both，选择时弹说明确认 */
+    private static View clockToolRow(final Activity act, boolean night) {
+        LinearLayout r = new LinearLayout(act);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(0, dp(act, 10), 0, dp(act, 10));
+        LinearLayout col = new LinearLayout(act);
+        col.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        col.setLayoutParams(clp);
+        String cur = act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                .getString("clock_tool_mode", "native");
+        String curName = "native".equals(cur) ? "仅系统时钟" : "experimental".equals(cur) ? "仅实验映射" : "全都要";
+        col.addView(txt(act, L10n.t(act, "about_widget_tools"), 16, true,
+                night ? 0xFFF0F0F0 : 0xFF111111, 2));
+        col.addView(txt(act, L10n.t(act, "about_widget_tools_sub") + "（当前：" + curName + "）", 12, true,
+                night ? 0xAAFFFFFF : 0xAA333333, 0));
+        r.addView(col);
+        TextView chev = new TextView(act);
+        chev.setText("›");
+        chev.setTextSize(20);
+        chev.setTypeface(Typeface.DEFAULT_BOLD);
+        chev.setTextColor(night ? 0x88FFFFFF : 0x88000000);
+        r.addView(chev);
+        r.setOnClickListener(v -> {
+            final String[] opts = {"native", "experimental", "both"};
+            String[] names = {"仅系统时钟", "仅实验映射（慎开）", "全都要"};
+            new android.app.AlertDialog.Builder(act)
+                    .setTitle(L10n.t(act, "about_widget_tools"))
+                    .setItems(names, (d, w) -> {
+                        confirmClockTool(act, opts[w], names[w]);
+                    })
+                    .show();
+        });
+        return r;
+    }
+
+    /** 时钟方案选择确认：详细说明每种方案 */
+    private static void confirmClockTool(final Activity act, String mode, String name) {
+        String msg;
+        if ("native".equals(mode)) {
+            msg = "仅系统时钟：\n" +
+                    "\u2022 部署主题时按时钟组件原生比例注入系统（固定 2×1）\n" +
+                    "\u2022 不弹尺寸询问，工具页不显示钉选/布局编辑入口\n" +
+                    "\u2022 最稳定，效果等同官方主题商店时钟。";
+        } else if ("experimental".equals(mode)) {
+            msg = "仅实验映射（本功能不稳定，请谨慎开启）：\n" +
+                    "\u2022 主题里的时间组件元素（数字贴图/布局）映射到本应用声明的小组件\n" +
+                    "\u2022 不注入系统时钟，桌面不会出现原生主题时钟\n" +
+                    "\u2022 部署时会询问比例（高×宽），可在布局编辑器自定义\n" +
+                    "\u2022 工具页显示「钉选时钟」和「布局编辑」入口。";
+        } else {
+            msg = "全都要：\n" +
+                    "\u2022 注入系统时钟（原生 2×1）+ 同时映射素材到本应用小组件\n" +
+                    "\u2022 部署时询问比例，工具页显示全部入口\n" +
+                    "\u2022 桌面上可以同时摆放原生时钟和自研时钟对比效果。";
+        }
+        new android.app.AlertDialog.Builder(act)
+                .setTitle("时钟方案：" + name)
+                .setMessage(msg)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("确认", (d, w) -> {
+                    act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                            .edit().putString("clock_tool_mode", mode).apply();
+                    act.recreate();
+                })
+                .show();
     }
 
     private static String deviceModeName(Activity act) {
