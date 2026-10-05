@@ -556,6 +556,7 @@ public class HyperHook implements IXposedHookLoadPackage {
         if ("com.android.systemui".equals(lpp.packageName)) {
             XposedBridge.log(TAG + ": in systemui");
             fakeSignal(lpp.classLoader, "com.android.systemui");
+            bootUnlock(lpp.classLoader);
             return;
         }
 
@@ -577,6 +578,178 @@ public class HyperHook implements IXposedHookLoadPackage {
                     "getAppWidgetInfo", "getInstalledProvidersForProfile", "getInstalledProvidersForPackage");
             dockTweaks(lpp.classLoader);
         }
+    }
+
+    // ===== 7 开机自动解锁（实验）：SystemUI 进程，验证凭据后 keyguardDone =====
+    private static final String UNLOCK_FILE = "/data/system/hypericecream_unlock.conf";
+    private static volatile Object sKvm = null;
+
+    private static java.util.HashMap<String, String> readKvFile(String path) {
+        java.util.HashMap<String, String> m = new java.util.HashMap<String, String>();
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(path));
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#") || !line.contains("=")) continue;
+                int i = line.indexOf('=');
+                m.put(line.substring(0, i).trim(), line.substring(i + 1).trim());
+            }
+            br.close();
+        } catch (Throwable ignored) {
+        }
+        return m;
+    }
+
+    private static String sysProp(String key) {
+        try {
+            Class<?> sp = Class.forName("android.os.SystemProperties");
+            return (String) sp.getMethod("get", String.class).invoke(null, key);
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    /** 捕获 KeyguardViewMediator 实例（开机后 handleShow 必经，构造器兜底） */
+    private static void captureMediator(ClassLoader cl) {
+        if (sKvm != null) return;
+        Class<?> kvm = null;
+        try {
+            kvm = XposedHelpers.findClass("com.android.systemui.keyguard.KeyguardViewMediator", cl);
+        } catch (Throwable t1) {
+            try {
+                kvm = XposedHelpers.findClass("com.android.keyguard.KeyguardViewMediator", cl);
+            } catch (Throwable t2) {
+                XposedBridge.log(TAG + ": bootUnlock mediator class not found");
+                return;
+            }
+        }
+        final Class<?> fKvm = kvm;
+        try {
+            Method hac = XposedBridge.class.getMethod("hookAllConstructors",
+                    Class.class, XC_MethodHook.class);
+            hac.invoke(null, fKvm, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    if (sKvm == null && param.thisObject != null) {
+                        sKvm = param.thisObject;
+                        XposedBridge.log(TAG + ": bootUnlock mediator captured");
+                    }
+                }
+            });
+            XposedBridge.log(TAG + ": bootUnlock mediator hook armed");
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": bootUnlock capture failed: " + t);
+        }
+    }
+
+    private static void unlockViaMediator() {
+        Object m = sKvm;
+        if (m == null) {
+            XposedBridge.log(TAG + ": bootUnlock no mediator instance");
+            return;
+        }
+        Class<?> c = m.getClass();
+        for (Method mm : c.getDeclaredMethods()) {
+            if (!"keyguardDone".equals(mm.getName())) continue;
+            Class<?>[] pt = mm.getParameterTypes();
+            try {
+                mm.setAccessible(true);
+                if (pt.length == 1 && pt[0] == boolean.class) {
+                    mm.invoke(m, Boolean.TRUE);
+                    XposedBridge.log(TAG + ": bootUnlock keyguardDone(true) OK");
+                    return;
+                }
+                if (pt.length == 2 && pt[0] == boolean.class && pt[1] == boolean.class) {
+                    mm.invoke(m, Boolean.TRUE, Boolean.FALSE);
+                    XposedBridge.log(TAG + ": bootUnlock keyguardDone(true,false) OK");
+                    return;
+                }
+            } catch (Throwable ig) {
+            }
+        }
+        try {
+            Method hm = c.getDeclaredMethod("handleKeyguardDone");
+            hm.setAccessible(true);
+            hm.invoke(m);
+            XposedBridge.log(TAG + ": bootUnlock handleKeyguardDone OK");
+            return;
+        } catch (Throwable ig) {
+        }
+        XposedBridge.log(TAG + ": bootUnlock no keyguardDone variant found");
+    }
+
+    private static void bootUnlock(final ClassLoader cl) {
+        captureMediator(cl);
+        final java.util.HashMap<String, String> cfg = readKvFile(UNLOCK_FILE);
+        if (!"1".equals(cfg.get("enabled"))) {
+            XposedBridge.log(TAG + ": bootUnlock disabled by config");
+            return;
+        }
+        final String pin = cfg.get("pin");
+        final String type = cfg.get("type") == null ? "password" : cfg.get("type");
+        if (pin == null || pin.trim().isEmpty()) {
+            XposedBridge.log(TAG + ": bootUnlock no pin in config");
+            return;
+        }
+        XposedBridge.log(TAG + ": bootUnlock armed (type=" + type + ")");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    for (int i = 0; i < 120; i++) {
+                        if ("1".equals(sysProp("sys.boot_completed"))) break;
+                        Thread.sleep(2000);
+                    }
+                    Thread.sleep(8000); // 等 keyguard 完全显示
+                    Class<?> lpuCls = Class.forName("com.android.internal.widget.LockPatternUtils");
+                    Class<?> credCls = Class.forName("com.android.internal.widget.LockscreenCredential");
+                    Object at = Class.forName("android.app.ActivityThread")
+                            .getMethod("currentActivityThread").invoke(null);
+                    Object ctx = at.getClass().getMethod("getSystemContext").invoke(at);
+                    Object lpu = lpuCls.getConstructor(android.content.Context.class).newInstance(ctx);
+                    Object cred;
+                    if ("pin".equals(type)) {
+                        cred = credCls.getMethod("createPin", CharSequence.class)
+                                .invoke(null, pin.trim());
+                    } else {
+                        cred = credCls.getMethod("createPassword", CharSequence.class)
+                                .invoke(null, pin.trim());
+                    }
+                    Object km = ctx.getClass().getMethod("getSystemService", String.class)
+                            .invoke(ctx, "keyguard");
+                    for (int i = 0; i < 8; i++) {
+                        try {
+                            Boolean locked = (Boolean) km.getClass()
+                                    .getMethod("isKeyguardLocked").invoke(km);
+                            if (!Boolean.TRUE.equals(locked)) {
+                                XposedBridge.log(TAG + ": bootUnlock keyguard already down");
+                                return;
+                            }
+                            Object resp = lpuCls.getMethod("verifyCredential",
+                                    credCls, int.class, int.class).invoke(lpu, cred, 0, 0);
+                            Boolean ok = Boolean.FALSE;
+                            try {
+                                ok = (Boolean) resp.getClass().getMethod("isOk").invoke(resp);
+                            } catch (Throwable ig) {
+                            }
+                            XposedBridge.log(TAG + ": bootUnlock verify#" + i
+                                    + " ok=" + ok + " resp=" + resp);
+                            if (Boolean.TRUE.equals(ok)) {
+                                unlockViaMediator();
+                                return;
+                            }
+                        } catch (Throwable t) {
+                            XposedBridge.log(TAG + ": bootUnlock try " + i + ": " + t);
+                        }
+                        Thread.sleep(10000);
+                    }
+                    XposedBridge.log(TAG + ": bootUnlock gave up after retries");
+                } catch (Throwable t) {
+                    XposedBridge.log(TAG + ": bootUnlock fatal: " + t);
+                }
+            }
+        }, "hic-bootunlock").start();
     }
 
     private static void clipboardGate(Class<?> cs, final String method, final boolean enforce) {

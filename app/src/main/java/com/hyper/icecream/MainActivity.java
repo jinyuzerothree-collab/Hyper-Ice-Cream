@@ -343,6 +343,74 @@ public class MainActivity extends Activity {
         ikNote.setText(L10n.t(this, "ik_note"));
         ikNote.setTextSize(11);
         tools.addView(ikNote);
+
+        // ===== 开发者选项（实验性）：开机上报 + 开机自动解锁 =====
+        TextView dt = new TextView(this);
+        dt.setText("开发者选项（实验性）");
+        dt.setTextSize(14);
+        dt.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+        dt.setPadding(0, dp(16), 0, dp(6));
+        tools.addView(dt);
+
+        final android.widget.CheckBox cbBoot = new android.widget.CheckBox(this);
+        cbBoot.setText("开机自动上报调试地址给电脑（自动连接）");
+        cbBoot.setChecked(getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                .getBoolean("boot_report", true));
+        cbBoot.setOnCheckedChangeListener((b, on) ->
+                getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                        .edit().putBoolean("boot_report", on).apply());
+        tools.addView(cbBoot);
+        TextView devNote = new TextView(this);
+        devNote.setText("上报目标: " + getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                .getString("report_url", "http://192.168.3.70:39291/report")
+                + "\n开机后自动把 IP:5555 发给电脑监听器，电脑端自动 adb connect。");
+        devNote.setTextSize(11);
+        tools.addView(devNote);
+
+        Button btnUnlockCfg = new Button(this);
+        btnUnlockCfg.setText("启用开机自动跳过锁屏密码");
+        btnUnlockCfg.setOnClickListener(v -> askUnlockPin());
+        tools.addView(btnUnlockCfg);
+    }
+
+    /** 开机自动解锁：密码存 /data/system/hypericecream_unlock.conf（仅 root 可写），
+     *  HyperHook 在 SystemUI 进程开机后 verify 凭据 + keyguardDone */
+    private void askUnlockPin() {
+        final android.widget.EditText in = new android.widget.EditText(this);
+        in.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        in.setHint("当前锁屏密码（仅存本机配置）");
+        new AlertDialog.Builder(this)
+                .setTitle("开机自动跳过锁屏（实验性）")
+                .setMessage("开机进入锁屏后，模块自动用此密码验证并解锁。\n密码写入 /data/system/hypericecream_unlock.conf，普通应用不可读。\n填入当前锁屏密码：")
+                .setView(in)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("启用", (d, w) -> {
+                    String pin = in.getText().toString().trim();
+                    if (pin.isEmpty()) {
+                        log("密码为空，未启用。");
+                        return;
+                    }
+                    String cfg = "enabled=1\ntype=password\npin=" + pin + "\n";
+                    File tmp = new File(getCacheDir(), "unlock_conf");
+                    try {
+                        java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp);
+                        fo.write(cfg.getBytes("UTF-8"));
+                        fo.close();
+                        String r = execSu("cp '" + tmp.getAbsolutePath()
+                                + "' /data/system/hypericecream_unlock.conf"
+                                + " && chmod 644 /data/system/hypericecream_unlock.conf"
+                                + " && chown root:root /data/system/hypericecream_unlock.conf"
+                                + " && echo UNLOCK-CFG-OK");
+                        log(r.contains("UNLOCK-CFG-OK")
+                                ? "✅ 开机自动跳过已启用（重启生效，需模块作用域含 SystemUI）"
+                                : "写入失败: " + r);
+                        tmp.delete();
+                    } catch (Throwable t) {
+                        log("写入失败: " + t);
+                    }
+                })
+                .show();
     }
 
     private LinearLayout rootCard, lspCard;
