@@ -487,10 +487,21 @@ public class MainActivity extends Activity {
         devNote.setTextSize(11);
         tools.addView(devNote);
 
-        Button btnUnlockCfg = new Button(this);
-        btnUnlockCfg.setText("启用开机自动跳过锁屏密码");
-        btnUnlockCfg.setOnClickListener(v -> askUnlockPin());
-        tools.addView(btnUnlockCfg);
+        unlockBtn = new Button(this);
+        refreshUnlockBtnText();
+        unlockBtn.setOnClickListener(v -> askUnlockPin());
+        tools.addView(unlockBtn);
+    }
+
+    private Button unlockBtn;
+
+    /** 按钮抬头反映启用状态：已启用带勾，未启用显示启用字样 */
+    private void refreshUnlockBtnText() {
+        if (unlockBtn == null) return;
+        boolean en = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                .getBoolean("unlock_enabled", false);
+        unlockBtn.setText(en ? "开机自动跳过锁屏密码  \u2705 已启用（点按管理）"
+                : "启用开机自动跳过锁屏密码");
     }
 
     /** 开机自动跳过锁屏：指南式面板（AI Agent 远程调试用），支持全部密码类型 */
@@ -511,10 +522,13 @@ public class MainActivity extends Activity {
         types.setOrientation(android.widget.RadioGroup.HORIZONTAL);
         final android.widget.RadioButton rbP = new android.widget.RadioButton(this);
         rbP.setText("混合密码");
+        rbP.setId(501);
         final android.widget.RadioButton rbN = new android.widget.RadioButton(this);
         rbN.setText("数字 PIN");
+        rbN.setId(502);
         final android.widget.RadioButton rbG = new android.widget.RadioButton(this);
         rbG.setText("图案（九宫格 1-9）");
+        rbG.setId(503);
         if ("pin".equals(typeHolder[0])) rbN.setChecked(true);
         else if ("pattern".equals(typeHolder[0])) rbG.setChecked(true);
         else rbP.setChecked(true);
@@ -617,6 +631,7 @@ public class MainActivity extends Activity {
                 .setNeutralButton("禁用", (d, w) -> {
                     sp.edit().putBoolean("unlock_enabled", false).apply();
                     if (writeUnlockConf("", false, "password")) log("开机自动跳过已禁用。");
+                    refreshUnlockBtnText();
                 })
                 .setNegativeButton("关闭", null)
                 .setPositiveButton("保存并启用", (d, w) -> {
@@ -633,6 +648,7 @@ public class MainActivity extends Activity {
                     } else {
                         log("\u274c 注入失败：su 写入未确认，请检查 Root 授权。");
                     }
+                    refreshUnlockBtnText();
                 });
         holder[0] = b.show();
         refresh.run();

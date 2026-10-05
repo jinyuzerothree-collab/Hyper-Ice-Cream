@@ -169,9 +169,7 @@ public class AboutPage {
         body.addView(sectionLabel(act, night, L10n.t(act, "device_mode")));
         LinearLayout devMode = whiteCard(act, night);
         devMode.addView(modeRow(act, night));
-        devMode.addView(modeToggleRow(act, night, L10n.t(act, "about_widget_tools"),
-                L10n.t(act, "about_widget_tools_sub"), "widget_tool_mode",
-                WIDGET_TOOL_NAMES, WIDGET_TOOL_VALUES));
+        devMode.addView(clockToolRow(act, night));
         devMode.addView(switchRow(act, night, L10n.t(act, "about_community"),
                 L10n.t(act, "about_community_sub"), "show_community",
                 new Runnable() {
