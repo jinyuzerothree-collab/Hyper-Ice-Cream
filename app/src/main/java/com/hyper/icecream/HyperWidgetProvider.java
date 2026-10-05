@@ -364,6 +364,8 @@ public class HyperWidgetProvider extends AppWidgetProvider {
             if (n <= 0) return "";
             JSONObject o = new JSONObject(new String(buf, StandardCharsets.UTF_8));
             if (System.currentTimeMillis() - o.optLong("t", 0) > 30L * 60 * 1000) return "";
+            int code = o.optInt("cat", -1); // 类别随缓存持久化（进程重启后图标仍可画）
+            if (code >= 0 && wxCat < 0) wxCat = code;
             return o.optString("text", "");
         } catch (Throwable ignored) {
             return "";
@@ -399,6 +401,7 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                 JSONObject o = new JSONObject();
                 o.put("t", System.currentTimeMillis());
                 o.put("text", text);
+                o.put("cat", wxCatNet >= 0 ? wxCatNet : 1);
                 FileOutputStream out = new FileOutputStream(wxCacheFile(ctx));
                 out.write(o.toString().getBytes(StandardCharsets.UTF_8));
                 out.close();

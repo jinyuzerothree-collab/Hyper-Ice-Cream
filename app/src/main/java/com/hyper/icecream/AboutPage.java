@@ -193,7 +193,38 @@ public class AboutPage {
         LinearLayout misc = whiteCard(act, night);
         misc.addView(menuRow(act, night, L10n.t(act, "contact"), L10n.t(act, "contact_sub"),
                 "mailto:jinyuzerothree@gmail.com"));
-        misc.addView(valueRow(act, night, L10n.t(act, "donate"), L10n.t(act, "donate_sub")));
+        LinearLayout donateRow = new LinearLayout(act);
+        donateRow.setOrientation(LinearLayout.HORIZONTAL);
+        donateRow.setGravity(Gravity.CENTER_VERTICAL);
+        donateRow.setPadding(0, dp(act, 10), 0, dp(act, 10));
+        TextView dLabel = new TextView(act);
+        dLabel.setText(L10n.t(act, "donate"));
+        dLabel.setTextSize(16);
+        dLabel.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        dLabel.setTextColor(night ? 0xFFF0F0F0 : 0xFF111111);
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        dLabel.setLayoutParams(dlp);
+        donateRow.addView(dLabel);
+        TextView dchev = new TextView(act);
+        dchev.setText("›");
+        dchev.setTextSize(20);
+        dchev.setTypeface(Typeface.DEFAULT_BOLD);
+        dchev.setTextColor(night ? 0x88FFFFFF : 0x88000000);
+        donateRow.addView(dchev);
+        donateRow.setOnClickListener(v -> {
+            ImageView qr = new ImageView(act);
+            qr.setImageResource(R.drawable.donate_qrcode);
+            qr.setAdjustViewBounds(true);
+            android.widget.ScrollView qscroll = new android.widget.ScrollView(act);
+            qscroll.addView(qr);
+            new android.app.AlertDialog.Builder(act)
+                    .setTitle("Ache 的赞赏码")
+                    .setView(qscroll)
+                    .setPositiveButton("关闭", null)
+                    .show();
+        });
+        misc.addView(donateRow);
         misc.addView(menuRow(act, night, L10n.t(act, "license") + " (MIT)", null, repoUrl() + "/blob/main/LICENSE"));
         misc.addView(menuRow(act, night, L10n.t(act, "changelog"), null, repoUrl() + "/blob/main/CHANGELOG.md"));
         body.addView(cardWrap(act, misc));
