@@ -514,7 +514,7 @@ public class MainActivity extends Activity {
         final android.widget.RadioButton rbN = new android.widget.RadioButton(this);
         rbN.setText("数字 PIN");
         final android.widget.RadioButton rbG = new android.widget.RadioButton(this);
-        rbG.setText("图案（九宫格）");
+        rbG.setText("图案（九宫格 1-9）");
         if ("pin".equals(typeHolder[0])) rbN.setChecked(true);
         else if ("pattern".equals(typeHolder[0])) rbG.setChecked(true);
         else rbP.setChecked(true);
@@ -524,10 +524,29 @@ public class MainActivity extends Activity {
         box.addView(types);
 
         final android.widget.EditText in = new android.widget.EditText(this);
-        in.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         String saved = sp.getString("unlock_pin", "");
-        in.setHint(saved.isEmpty() ? "输入当前锁屏凭据" : "当前已保存，输入新凭据可更换");
+        Runnable applyTypeUi = () -> {
+            boolean isPattern = "pattern".equals(typeHolder[0]);
+            if (isPattern) {
+                in.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+                in.setTransformationMethod(null);
+            } else {
+                in.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                in.setTransformationMethod(new android.text.method.PasswordTransformationMethod());
+            }
+        };
+        applyTypeUi.run();
+        Runnable updateHint = () -> {
+            if ("pattern".equals(typeHolder[0])) {
+                in.setHint("九宫格序号：第一行 1 2 3，第二行 4 5 6，第三行 7 8 9（从上到下、每行从左到右）。L 型 = 1,4,7,8,9");
+            } else if ("pin".equals(typeHolder[0])) {
+                in.setHint("输入数字 PIN");
+            } else {
+                in.setHint(saved.isEmpty() ? "输入当前锁屏密码" : "当前已保存，输入新密码可更换");
+            }
+        };
+        updateHint.run();
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         ilp.topMargin = dp(10);
@@ -540,6 +559,10 @@ public class MainActivity extends Activity {
         show.setTextColor(0xFF1E88E5);
         show.setPadding(0, dp(6), 0, 0);
         show.setOnClickListener(v -> {
+            if ("pattern".equals(typeHolder[0])) {
+                Toast.makeText(this, "图案序号始终明文显示", Toast.LENGTH_SHORT).show();
+                return;
+            }
             boolean hidden = in.getTransformationMethod() != null;
             in.setTransformationMethod(hidden ? null
                     : new android.text.method.PasswordTransformationMethod());
@@ -613,9 +636,9 @@ public class MainActivity extends Activity {
                 });
         holder[0] = b.show();
         refresh.run();
-        rbP.setOnCheckedChangeListener((c2, on) -> { if (on) typeHolder[0] = "password"; });
-        rbN.setOnCheckedChangeListener((c2, on) -> { if (on) typeHolder[0] = "pin"; });
-        rbG.setOnCheckedChangeListener((c2, on) -> { if (on) typeHolder[0] = "pattern"; });
+        rbP.setOnCheckedChangeListener((c2, on) -> { if (on) { typeHolder[0] = "password"; applyTypeUi.run(); updateHint.run(); } });
+        rbN.setOnCheckedChangeListener((c2, on) -> { if (on) { typeHolder[0] = "pin"; applyTypeUi.run(); updateHint.run(); } });
+        rbG.setOnCheckedChangeListener((c2, on) -> { if (on) { typeHolder[0] = "pattern"; applyTypeUi.run(); updateHint.run(); } });
     }
 
     /** 写解锁配置；成功返回 true */
