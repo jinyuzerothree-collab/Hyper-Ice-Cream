@@ -185,19 +185,19 @@ public class MainActivity extends Activity {
         findViewById(R.id.btn_widget_layout).setVisibility(wt ? View.VISIBLE : View.GONE);
     }
 
-    /** 时钟小组件工具（钉选+布局编辑）三态：auto=平板显示/手机隐藏；on=始终显示；off=始终隐藏 */
-    private static final String[] WIDGET_TOOL_MODES = {"auto", "on", "off"};
-
-    private String widgetToolMode() {
+    /** 时钟实现方案：native=仅注入系统时钟（原生比例）；experimental=自研映射（慎开）；both=全都要 */
+    private String clockToolMode() {
         return getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
-                .getString("widget_tool_mode", "auto");
+                .getString("clock_tool_mode", "native");
+    }
+
+    private boolean clockToolHasExperimental() {
+        String m = clockToolMode();
+        return "experimental".equals(m) || "both".equals(m);
     }
 
     private boolean widgetToolVisible() {
-        String m = widgetToolMode();
-        if ("on".equals(m)) return true;
-        if ("off".equals(m)) return false;
-        return !isPhoneMode(); // auto
+        return clockToolHasExperimental(); // 自研方案开启后，工具页两个入口才出现
     }
 
     /** 搭载端：auto 按屏幕最小宽判定；phone 隐藏平板专属（Dock 补丁）功能 */
@@ -897,8 +897,9 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** 若系统主题里已有时钟组件而素材未导出，静默补导出 */
+    /** 若系统主题里已有时钟组件而素材未导出，静默补导出（仅自研方案开启时） */
     private void autoExportWidgetAssets() {
+        if (!clockToolHasExperimental()) return;
         new Thread(() -> {
             String r = execSu("test -f /data/system/theme/clock_2x4 && echo HAVE-CLOCK");
             if (r.contains("HAVE-CLOCK")) {
@@ -1527,8 +1528,8 @@ public class MainActivity extends Activity {
             String n = (String) c[0];
             if (WIDGET_PATTERN.matcher(n).matches() || n.startsWith("gadgets/")) widgets.add(c);
         }
-        if (widgets.isEmpty() || !widgetToolVisible()) {
-            // 时钟工具关闭（或无组件）时不询问尺寸，用默认，避免打扰
+        if (widgets.isEmpty() || !clockToolHasExperimental()) {
+            // 仅注入系统时钟（native）或无组件时不询问比例，用默认
             runDeploy(sel, widgetSizes);
             return;
         }
@@ -1631,10 +1632,17 @@ public class MainActivity extends Activity {
                 sb.append("mkdir -p /data/system/theme/").append(parent).append('\n');
                 deployedGadgets = true;
             }
-            sb.append("cp '").append(path).append("' /data/system/theme/").append(name).append('\n');
-            sb.append("chown system_theme:system_theme /data/system/theme/").append(name).append('\n');
-            sb.append("chmod ").append(name.equals("wallpaper") ? "600" : "755")
-              .append(" /data/system/theme/").append(name).append('\n');
+            boolean isClockWidget = WIDGET_PATTERN.matcher(name).matches();
+            boolean skipSystemInject = isClockWidget && "experimental".equals(clockToolMode());
+            if (skipSystemInject) {
+                // 实验模式：主题时钟元素只映射到本应用组件，不注入系统时钟
+                sb.append("echo 'skip ").append(name).append(" (experimental mode)'\n");
+            } else {
+                sb.append("cp '").append(path).append("' /data/system/theme/").append(name).append('\n');
+                sb.append("chown system_theme:system_theme /data/system/theme/").append(name).append('\n');
+                sb.append("chmod ").append(name.equals("wallpaper") ? "600" : "755")
+                  .append(" /data/system/theme/").append(name).append('\n');
+            }
         }
         sb.append("echo DEPLOY-DONE\n");
         String r = execSu(sb.toString());
@@ -1669,7 +1677,10 @@ public class MainActivity extends Activity {
                 isCommunity = true;
                 log("（与社区已有主题 sha256 一致，不再贡献）");
             }
-            if (!isCommunity && lastMeta != null) {
+            if (!communityVisible()) {
+                // 社区功能未开启（关于页实验开关），不打扰
+                pendingCommunityFile = null;
+            } else if (!isCommunity && lastMeta != null) {
                 new AlertDialog.Builder(this)
                         .setTitle("分享主题给社区？")
                         .setMessage("当前主题已成功部署。\n是否将该主题贡献到社区主题库？\n帮助更多平板用户发现优质主题。")
