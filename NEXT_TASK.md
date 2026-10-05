@@ -1,19 +1,21 @@
 # NEXT_TASK.md — 下一阶段任务清单
 
-> **v3.1 (vc23) 已构建推送**（数字版布局编辑器，未发布 Release）。仓库: Hyper-Ice-Cream。
+> **v3.1 (vc24) 已构建推送**（数字版布局编辑器 + 图标包导入，未发布 Release）。仓库: Hyper-Ice-Cream。
 > 设备: 192.168.3.87:{端口重启会变}；Root = KernelSU su。构建 build_tt.py（workspace 根）；gh 在 C:\abuild\gh\bin\gh.exe。
 > ⚠️ 字段初始化器禁止引用 this/Context；DSH android.jar 是残缺 stub → 模块代码对框架类型全反射。
 > ⚠️ 本机 shell 是 cmd：`;` 不是分隔符（会被当成程序参数），用 `&&` 或单命令。多行 python -c 会静默失败，写脚本文件或单行。
 
-## 1. 【P0 待用户验收】
-- [ ] v3.1 (vc23) 装机 → 工具页「时钟小组件布局编辑（实验性）」→ **数字输入**（无滑杆）：每元素 左右偏移/上下偏移(dp，可负) + 大小(%，100=原始) + 字体粗细(细/常规/粗/特粗) + 颜色 + 显隐；基线 = 原有布局
-- [ ] 天气条验证：系统天气 provider 查不到时走 IP 定位 + Open-Meteo 网络兜底（30min 落盘缓存）；首次无数据整行隐藏、取到后自动出现并刷新
-- [ ] 时间每分钟自动走（AlarmManager 整分 tick；被省电冻结则加白名单）
+## 1. 【P0 回家后设备验证（按序）】
+- [ ] **icons 格式实证**（vc24 图标包导入的依据，已本地对 Neo.mtz 核实：zip 内 `res/drawable-xxhdpi/<包名>.png` 240×240 + 可选 fancy_icons/theme_fallback/transform_config）：
+  `adb shell su -c 'unzip -l /data/system/theme/icons | head -30'`（设备上现存的生效样本，应吻合）；顺带 `stat -c '%U %G %a' /data/system/theme/icons` 记录原始属主/权限
+- [ ] 装机 vc24 → 验收布局编辑器：数字输入（左右/上下偏移 dp 可负、大小 %、粗细四档）→ 保存并应用 → 桌面按新布局渲染；时间每分钟自动走（省电冻结则加白名单）
+- [ ] 天气条：无数据时网络兜底（IP 定位 + Open-Meteo，30min 缓存）后自动出现
+- [ ] 图标包导入：检测（需装 Nova/ADW 格式包）→ 提取进度 → 确认 → 自动备份 → cp+chown 部署 → 重启桌面 → 图标生效；未映射应用回退原图标
 - [ ] v3.0 遗留：组件选择器「实验性」标注显示；社区页 Neo 下载回归
 
 ## 2. 【P1 备选】
+- [ ] 图标包增强：activity 级映射（包名.类.png）、fancy_icons 动态图标（日历/天气）、遮罩形状预览
 - [ ] 布局配置导入/导出（社区分享布局 JSON）
-- [ ] 天气源: content://weather 查不到时降级 Open-Meteo API（需定位权限或 IP 定位）
 - [ ] 白名单管理器 UI 美化；索引真实条目回填
 
 ## 3. 【P1】DockTweaks 备选方案
@@ -28,4 +30,5 @@
 ## 禁止事项
 - 不做: 长按菜单移植、KSU 挂载、自建服务器、P2P、硬编码尺寸
 - 用户使用设备时禁止远程点击；部署前自动备份
+
 
