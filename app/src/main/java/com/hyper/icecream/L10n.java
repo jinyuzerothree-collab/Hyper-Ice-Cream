@@ -85,7 +85,7 @@ public class L10n {
         put("dock_ask_msg", "本次部署主题时，是否同时调整 Dock 常驻图标？（实验性）", "本次部署主題時，是否同時調整 Dock 常駐圖標？（實驗性）", "Adjust dock resident icons with this deploy? (experimental)");
         // v3.1 时钟布局编辑器
         put("wl_title", "时钟小组件布局编辑", "時鐘小組件佈局編輯", "Clock widget layout editor");
-        put("wl_sub", "每个元素的位置、字号、对齐、颜色都可自由调整，预览即时生效。", "每個元素的位置、字號、對齊、顏色都可自由調整，預覽即時生效。", "Adjust each element's position, size, alignment and color; live preview.");
+        put("wl_sub", "每个元素可直接输入数字微调：左右/上下偏移、大小、粗细，预览即时生效。", "每個元素可直接輸入數字微調：左右/上下偏移、大小、粗細，預覽即時生效。", "Type numbers to tweak each element's offsets, size and weight; live preview.");
         put("wl_el_dow", "星期", "星期", "Weekday");
         put("wl_el_period", "时段", "時段", "Day period");
         put("wl_el_time", "时间", "時間", "Time");
@@ -93,14 +93,16 @@ public class L10n {
         put("wl_el_lunar", "农历", "農曆", "Lunar date");
         put("wl_el_weather", "天气", "天氣", "Weather");
         put("wl_show", "显示", "顯示", "Show");
-        put("wl_pos_x", "位置X", "位置X", "Position X");
-        put("wl_pos_y", "位置Y", "位置Y", "Position Y");
-        put("wl_size", "字号", "字號", "Font size");
-        put("wl_align", "对齐", "對齊", "Align");
-        put("wl_left", "左", "左", "Left");
-        put("wl_center", "中", "中", "Center");
-        put("wl_right", "右", "右", "Right");
-        put("wl_bold", "粗体", "粗體", "Bold");
+        put("wl_pos_x", "左右偏移", "左右偏移", "X offset");
+        put("wl_pos_y", "上下偏移", "上下偏移", "Y offset");
+        put("wl_size", "大小", "大小", "Size");
+        put("wl_unit_dp", "dp", "dp", "dp");
+        put("wl_unit_pct", "%", "%", "%");
+        put("wl_weight", "字体粗细", "字體粗細", "Font weight");
+        put("wl_thin", "细", "細", "Thin");
+        put("wl_regular", "常规", "常規", "Regular");
+        put("wl_wbold", "粗", "粗", "Bold");
+        put("wl_wblack", "特粗", "特粗", "Extra bold");
         put("wl_color", "颜色", "顏色", "Color");
         put("wl_reset", "恢复默认", "恢復默認", "Reset defaults");
         put("wl_preset_theme", "主题复刻", "主題復刻", "Theme replica");

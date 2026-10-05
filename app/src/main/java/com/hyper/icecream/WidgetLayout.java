@@ -7,25 +7,27 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 
 /**
- * 时钟小组件布局模型 v1 —— 六元素（星期/时段/时间/日期/农历/天气），
- * 每个元素：显隐 on、位置 x/y（占宽高的 0~1）、字号 s（占高 0~1）、
- * 对齐 a（0左 1中 2右）、颜色 c（ARGB int）、粗体 b。
+ * 时钟小组件布局模型 v2 —— 原有布局基线 + 每元素数字微调。
+ * 六元素（星期/时段/时间/日期/农历/天气），每元素：
+ *   on  显隐；dx/dy 左右/上下偏移（dp，相对原有布局基线，可负）；
+ *   s   大小倍率（1.0 = 原始字号）；w 字体粗细（0细 1常规 2粗 3特粗）；c 颜色。
+ * 渲染坐标 = 基线(baseX/baseY 占画布比例) + 偏移，字号 = 基线(baseS 占高) × 倍率。
  * 持久化到应用私有目录 widget_layout.json（渲染在本应用进程，无需 root）。
  */
 public class WidgetLayout {
 
-    /** 单元素布局参数 */
+    /** 单元素布局参数（数字输入，全部相对原有布局） */
     public static class El {
         public boolean on = true;
-        public float x = 0.05f, y = 0.10f, s = 0.08f;
-        public int a = 0;           // 0左 1中 2右
-        public int c = 0xFFFFFFFF;  // 白
-        public boolean b = true;    // 粗体
+        public int dx = 0, dy = 0;      // 左右/上下偏移 dp
+        public float s = 1.0f;          // 大小倍率，100% = 1.0
+        public int w = 2;               // 0细 1常规 2粗 3特粗
+        public int c = 0xFFFFFFFF;      // 白
 
         public JSONObject toJson() throws Exception {
             JSONObject o = new JSONObject();
-            o.put("on", on); o.put("x", x); o.put("y", y); o.put("s", s);
-            o.put("a", a); o.put("c", c); o.put("b", b);
+            o.put("on", on); o.put("dx", dx); o.put("dy", dy);
+            o.put("s", s); o.put("w", w); o.put("c", c);
             return o;
         }
 
@@ -33,20 +35,38 @@ public class WidgetLayout {
             El e = new El();
             try {
                 e.on = o.optBoolean("on", true);
-                e.x = clamp01((float) o.optDouble("x", e.x));
-                e.y = clamp01((float) o.optDouble("y", e.y));
-                e.s = clamp01((float) o.optDouble("s", e.s));
-                e.a = o.optInt("a", 0);
+                e.dx = clampInt(o.optInt("dx", 0), -999, 999);
+                e.dy = clampInt(o.optInt("dy", 0), -999, 999);
+                e.s = clampF((float) o.optDouble("s", 1.0), 0.2f, 4.0f);
+                e.w = clampInt(o.optInt("w", 2), 0, 3);
                 e.c = o.optInt("c", 0xFFFFFFFF);
-                e.b = o.optBoolean("b", true);
             } catch (Throwable ignored) {
             }
             return e;
         }
     }
 
-    /** 六元素键名 */
     public static final String[] KEYS = {"dow", "period", "time", "date", "lunar", "weather"};
+
+    // ---------- 原有布局基线（占画布宽/高比例；y 为文字基线位置） ----------
+    public static float baseX(String k) {
+        if ("period".equals(k) || "lunar".equals(k)) return 0.42f;
+        return 0.05f;
+    }
+
+    public static float baseY(String k) {
+        if ("dow".equals(k) || "period".equals(k)) return 0.10f;
+        if ("time".equals(k)) return 0.30f;
+        if ("date".equals(k) || "lunar".equals(k)) return 0.62f;
+        return 0.82f; // weather
+    }
+
+    public static float baseS(String k) {
+        if ("time".equals(k)) return 0.32f;
+        if ("date".equals(k) || "lunar".equals(k)) return 0.09f;
+        if ("weather".equals(k)) return 0.085f;
+        return 0.075f; // dow / period
+    }
 
     public final java.util.HashMap<String, El> els = new java.util.HashMap<>();
 
@@ -63,37 +83,34 @@ public class WidgetLayout {
         return e;
     }
 
-    /** 默认布局：近似 v5 垂直排版（星期 时段 / 大时间 / 日期 农历 / 天气） */
+    /** 原有布局：全部零偏移、原始字号、粗体（2粗） */
     public final void resetDefault() {
         els.clear();
-        El dow = new El();     dow.x = 0.05f; dow.y = 0.10f; dow.s = 0.075f; els.put("dow", dow);
-        El period = new El();  period.x = 0.42f; period.y = 0.10f; period.s = 0.075f; els.put("period", period);
-        El time = new El();    time.x = 0.05f; time.y = 0.30f; time.s = 0.32f; time.b = true; els.put("time", time);
-        El date = new El();    date.x = 0.05f; date.y = 0.62f; date.s = 0.09f; els.put("date", date);
-        El lunar = new El();   lunar.x = 0.42f; lunar.y = 0.62f; lunar.s = 0.09f; els.put("lunar", lunar);
-        El weather = new El(); weather.x = 0.05f; weather.y = 0.82f; weather.s = 0.085f; els.put("weather", weather);
+        for (String k : KEYS) els.put(k, new El());
     }
 
-    /** 主题复刻预设：Neo 时钟的纵向比例（时段随星期，农历贴日期右侧） */
+    /** 主题复刻预设：时间放大上提，信息行整体下沉拉开层次 */
     public void applyThemePreset() {
         resetDefault();
-        el("time").y = 0.24f;
-        el("time").s = 0.36f;
-        el("date").y = 0.66f;
-        el("lunar").y = 0.66f;
-        el("weather").y = 0.86f;
+        el("time").s = 1.3f;
+        el("time").dy = -6;
+        el("dow").dy = -10;
+        el("period").dy = -10;
+        el("date").dy = 8;
+        el("lunar").dy = 8;
+        el("weather").dy = 18;
     }
 
     public String serialize() {
         try {
             JSONObject root = new JSONObject();
-            root.put("v", 1);
+            root.put("v", 2);
             JSONObject e = new JSONObject();
             for (String k : KEYS) e.put(k, el(k).toJson());
             root.put("els", e);
             return root.toString();
         } catch (Throwable t) {
-            return "{\"v\":1}";
+            return "{\"v\":2}";
         }
     }
 
@@ -102,6 +119,7 @@ public class WidgetLayout {
         if (s == null || s.isEmpty()) return;
         try {
             JSONObject root = new JSONObject(s);
+            if (root.optInt("v", 0) != 2) return; // 旧格式直接回默认
             JSONObject e = root.optJSONObject("els");
             if (e == null) return;
             for (String k : KEYS) {
@@ -112,8 +130,12 @@ public class WidgetLayout {
         }
     }
 
-    private static float clamp01(float v) {
-        return v < 0 ? 0 : (v > 1 ? 1 : v);
+    private static int clampInt(int v, int lo, int hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
+    }
+
+    private static float clampF(float v, float lo, float hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
     }
 
     // ---------- 持久化 ----------
