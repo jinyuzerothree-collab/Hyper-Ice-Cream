@@ -495,13 +495,31 @@ public class MainActivity extends Activity {
 
     private Button unlockBtn;
 
-    /** 按钮抬头反映启用状态：已启用带勾，未启用显示启用字样 */
+    /** 按钮抬头反映启用状态：先按 prefs 即时显示，再异步回读 conf 校准（conf 为唯一真相） */
     private void refreshUnlockBtnText() {
         if (unlockBtn == null) return;
         boolean en = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
                 .getBoolean("unlock_enabled", false);
         unlockBtn.setText(en ? "开机自动跳过锁屏密码  \u2705 已启用（点按管理）"
                 : "启用开机自动跳过锁屏密码");
+        new Thread(() -> {
+            String r = execSu("cat /data/system/hypericecream_unlock.conf 2>/dev/null");
+            boolean confOn = r.contains("enabled=1") && r.contains("pin=")
+                    && !r.replace("pin=\n", "").replace("pin=", "").trim().isEmpty();
+            if (confOn != en) {
+                // prefs 与实际配置漂移：以 conf 为准回写
+                getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                        .edit().putBoolean("unlock_enabled", confOn).apply();
+                runOnUiThread(() -> {
+                    if (unlockBtn != null) {
+                        unlockBtn.setText(confOn ? "开机自动跳过锁屏密码  \u2705 已启用（点按管理）"
+                                : "启用开机自动跳过锁屏密码");
+                    }
+                });
+                log(confOn ? "\u2139 检测到配置文件为启用状态，按钮已校准。"
+                        : "\u2139 检测到配置文件已关闭，按钮已校准。");
+            }
+        }, "hic-unlockbtn").start();
     }
 
     /** 开机自动跳过锁屏：指南式面板（AI Agent 远程调试用），支持全部密码类型 */
@@ -629,9 +647,14 @@ public class MainActivity extends Activity {
                 .setTitle("开机自动跳过锁屏（实验性）")
                 .setView(box)
                 .setNeutralButton("禁用", (d, w) -> {
-                    sp.edit().putBoolean("unlock_enabled", false).apply();
-                    if (writeUnlockConf("", false, "password")) log("开机自动跳过已禁用。");
+                    if (writeUnlockConf("", false, "password")) {
+                        sp.edit().putBoolean("unlock_enabled", false).apply();
+                        log("开机自动跳过已禁用。");
+                    } else {
+                        log("\u274c 禁用失败（配置文件写入未确认），状态保持不变。");
+                    }
                     refreshUnlockBtnText();
+                    refresh.run(); // 面板状态行同步（关闭前可见）
                 })
                 .setNegativeButton("关闭", null)
                 .setPositiveButton("保存并启用", (d, w) -> {
