@@ -189,8 +189,11 @@ public class AboutPage {
         tr.addView(valueRow(act, night, "Hyper Ice Cream " + L10n.t(act, "official"), L10n.langName(L10n.get())));
         body.addView(cardWrap(act, tr));
 
-        // ===== 杂项 =====
+        // ===== 杂项（含联系我们/捐赠） =====
         LinearLayout misc = whiteCard(act, night);
+        misc.addView(menuRow(act, night, L10n.t(act, "contact"), L10n.t(act, "contact_sub"),
+                "mailto:jinyuzerothree@gmail.com"));
+        misc.addView(valueRow(act, night, L10n.t(act, "donate"), L10n.t(act, "donate_sub")));
         misc.addView(menuRow(act, night, L10n.t(act, "license") + " (MIT)", null, repoUrl() + "/blob/main/LICENSE"));
         misc.addView(menuRow(act, night, L10n.t(act, "changelog"), null, repoUrl() + "/blob/main/CHANGELOG.md"));
         body.addView(cardWrap(act, misc));

@@ -826,6 +826,28 @@ public class HyperHook implements IXposedHookLoadPackage {
                     if ("pin".equals(type)) {
                         cred = credCls.getMethod("createPin", CharSequence.class)
                                 .invoke(null, pin.trim());
+                    } else if ("pattern".equals(type)) {
+                        // pin 字段为九宫格索引序列，如 "0,4,8"（0 1 2 / 3 4 5 / 6 7 8）
+                        Class<?> cellCls = Class.forName("com.android.internal.widget.LockPatternView$Cell");
+                        java.util.List<Object> pts = new java.util.ArrayList<Object>();
+                        for (String tok : pin.trim().split(",")) {
+                            int idx = Integer.parseInt(tok.trim());
+                            java.lang.reflect.Method ofM = null;
+                            try {
+                                ofM = cellCls.getMethod("of", int.class, int.class);
+                            } catch (Throwable ig) {
+                            }
+                            if (ofM != null) {
+                                pts.add(ofM.invoke(null, idx / 3, idx % 3));
+                            } else {
+                                java.lang.reflect.Constructor<?> cc =
+                                        cellCls.getDeclaredConstructor(int.class, int.class);
+                                cc.setAccessible(true);
+                                pts.add(cc.newInstance(idx / 3, idx % 3));
+                            }
+                        }
+                        cred = credCls.getMethod("createPattern", java.util.List.class)
+                                .invoke(null, pts);
                     } else {
                         cred = credCls.getMethod("createPassword", CharSequence.class)
                                 .invoke(null, pin.trim());

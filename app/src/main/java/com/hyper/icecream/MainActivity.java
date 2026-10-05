@@ -493,7 +493,7 @@ public class MainActivity extends Activity {
         tools.addView(btnUnlockCfg);
     }
 
-    /** 开机自动跳过锁屏：指南式面板（AI Agent 远程调试用），状态勾实时可见 */
+    /** 开机自动跳过锁屏：指南式面板（AI Agent 远程调试用），支持全部密码类型 */
     private void askUnlockPin() {
         SharedPreferences sp = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE);
         LinearLayout box = new LinearLayout(this);
@@ -502,22 +502,51 @@ public class MainActivity extends Activity {
         box.setPadding(p, 0, p, 0);
 
         TextView use = new TextView(this);
-        use.setText("用途：供 AI Agent 远程调试平板。开机进入锁屏后，模块自动用此密码完成验证并解锁，无需人工输入。密码仅存本机。");
+        use.setText("用途：供 AI Agent 远程调试平板。开机进入锁屏后，模块自动用此凭据完成验证并解锁，无需人工输入。仅存本机。");
         use.setTextSize(12);
         box.addView(use);
+
+        final String[] typeHolder = {sp.getString("unlock_type", "password")};
+        android.widget.RadioGroup types = new android.widget.RadioGroup(this);
+        types.setOrientation(android.widget.RadioGroup.HORIZONTAL);
+        final android.widget.RadioButton rbP = new android.widget.RadioButton(this);
+        rbP.setText("混合密码");
+        final android.widget.RadioButton rbN = new android.widget.RadioButton(this);
+        rbN.setText("数字 PIN");
+        final android.widget.RadioButton rbG = new android.widget.RadioButton(this);
+        rbG.setText("图案（九宫格）");
+        if ("pin".equals(typeHolder[0])) rbN.setChecked(true);
+        else if ("pattern".equals(typeHolder[0])) rbG.setChecked(true);
+        else rbP.setChecked(true);
+        types.addView(rbP);
+        types.addView(rbN);
+        types.addView(rbG);
+        box.addView(types);
 
         final android.widget.EditText in = new android.widget.EditText(this);
         in.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        in.setHint("输入当前锁屏密码以启用 / 更换");
+        String saved = sp.getString("unlock_pin", "");
+        in.setHint(saved.isEmpty() ? "输入当前锁屏凭据" : "当前已保存，输入新凭据可更换");
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         ilp.topMargin = dp(10);
         in.setLayoutParams(ilp);
         box.addView(in);
 
-        TextView st1 = new TextView(this);
-        TextView st2 = new TextView(this);
+        TextView show = new TextView(this);
+        show.setText("👁 显示凭据");
+        show.setTextSize(13);
+        show.setTextColor(0xFF1E88E5);
+        show.setPadding(0, dp(6), 0, 0);
+        show.setOnClickListener(v -> {
+            boolean hidden = in.getTransformationMethod() != null;
+            in.setTransformationMethod(hidden ? null
+                    : new android.text.method.PasswordTransformationMethod());
+            show.setText(hidden ? "🙈 隐藏凭据" : "👁 显示凭据");
+        });
+        box.addView(show);
+
         TextView guide = new TextView(this);
         guide.setText("📖 查看 Agent 使用指南（发给你的 AI Agent 阅读）");
         guide.setTextSize(13);
@@ -534,13 +563,20 @@ public class MainActivity extends Activity {
         });
         box.addView(guide);
 
+        TextView st1 = new TextView(this);
+        TextView st2 = new TextView(this);
         TextView st3 = new TextView(this);
         Runnable refresh = () -> {
             boolean en = sp.getBoolean("unlock_enabled", false);
             String pin = sp.getString("unlock_pin", "");
-            st1.setText((en ? "\u2705 已启用" : "\u274c 未启用"));
-            st2.setText("当前密码：" + (en && !pin.isEmpty() ? pin : "未设置"));
-            st3.setText("写入 /data/system/hypericecream_unlock.conf 后重启生效；需 LSPosed 作用域含 SystemUI");
+            String tp = sp.getString("unlock_type", "password");
+            st1.setText((en ? "\u2705 已启用" : "\u274c 未启用") + "（类型：" + tp + "）");
+            st2.setText("当前凭据：" + (en && !pin.isEmpty() ? pin : "未设置"));
+            // 注入状态：回读系统配置文件验证
+            String r = execSu("cat /data/system/hypericecream_unlock.conf 2>/dev/null");
+            boolean injected = en && r.contains("enabled=1") && r.contains("pin=") && !pin.isEmpty();
+            st3.setText(injected ? "\u2705 已注入成功（/data/system/hypericecream_unlock.conf 校验一致）"
+                    : "\u274c 未注入 / 校验不一致——点「保存并启用」重新写入");
             st1.setTextSize(13);
             st2.setTextSize(13);
             st3.setTextSize(12);
@@ -551,31 +587,40 @@ public class MainActivity extends Activity {
         box.addView(st2);
         box.addView(st3);
 
-        new AlertDialog.Builder(this)
+        final AlertDialog[] holder = new AlertDialog[1];
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
                 .setTitle("开机自动跳过锁屏（实验性）")
                 .setView(box)
                 .setNeutralButton("禁用", (d, w) -> {
                     sp.edit().putBoolean("unlock_enabled", false).apply();
-                    if (writeUnlockConf("", false)) log("开机自动跳过已禁用。");
+                    if (writeUnlockConf("", false, "password")) log("开机自动跳过已禁用。");
                 })
                 .setNegativeButton("关闭", null)
                 .setPositiveButton("保存并启用", (d, w) -> {
+                    String tp = rbN.isChecked() ? "pin" : rbG.isChecked() ? "pattern" : "password";
                     String pin = in.getText().toString().trim();
                     if (pin.isEmpty()) {
-                        log("密码为空，未启用。");
+                        log("凭据为空，未启用。");
                         return;
                     }
-                    if (writeUnlockConf(pin, true)) {
-                        sp.edit().putBoolean("unlock_enabled", true).putString("unlock_pin", pin).apply();
-                        log("\u2705 开机自动跳过已启用（重启生效，需模块作用域含 SystemUI）。状态下次打开本面板可见。");
+                    if (writeUnlockConf(pin, true, tp)) {
+                        sp.edit().putBoolean("unlock_enabled", true)
+                                .putString("unlock_pin", pin).putString("unlock_type", tp).apply();
+                        log("\u2705 开机自动跳过已启用（重启生效，需模块作用域含 SystemUI）。");
+                    } else {
+                        log("\u274c 注入失败：su 写入未确认，请检查 Root 授权。");
                     }
-                })
-                .show();
+                });
+        holder[0] = b.show();
+        refresh.run();
+        rbP.setOnCheckedChangeListener((c2, on) -> { if (on) typeHolder[0] = "password"; });
+        rbN.setOnCheckedChangeListener((c2, on) -> { if (on) typeHolder[0] = "pin"; });
+        rbG.setOnCheckedChangeListener((c2, on) -> { if (on) typeHolder[0] = "pattern"; });
     }
 
     /** 写解锁配置；成功返回 true */
-    private boolean writeUnlockConf(String pin, boolean enable) {
-        String cfg = "enabled=" + (enable ? 1 : 0) + "\ntype=password\npin=" + pin + "\n";
+    private boolean writeUnlockConf(String pin, boolean enable, String type) {
+        String cfg = "enabled=" + (enable ? 1 : 0) + "\ntype=" + type + "\npin=" + pin + "\n";
         File tmp = new File(getCacheDir(), "unlock_conf");
         try {
             java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp);
@@ -592,9 +637,7 @@ public class MainActivity extends Activity {
             log("写入失败: " + t);
             return false;
         }
-    }
-
-    private LinearLayout rootCard, lspCard;
+    }    private LinearLayout rootCard, lspCard;
     private TextView permDetail;
 
     /** LSPosed 风格状态卡：浅绿/灰底 + 大粗标题 + 大圆勾图标 */

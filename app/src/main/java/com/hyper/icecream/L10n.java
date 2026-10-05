@@ -107,6 +107,10 @@ public class L10n {
         put("device_auto", "自动识别", "自動識別", "Auto");
         put("device_tablet", "平板", "平板", "Tablet");
         put("device_phone", "手机", "手機", "Phone");
+        put("contact", "联系我们", "聯繫我們", "Contact us");
+        put("contact_sub", "jinyuzerothree@gmail.com", "jinyuzerothree@gmail.com", "jinyuzerothree@gmail.com");
+        put("donate", "捐赠", "捐贈", "Donate");
+        put("donate_sub", "支持开发（捐赠码待填）", "支持開發（捐贈碼待填）", "Support development (code pending)");
         put("about_widget_tools", "时钟小组件工具", "時鐘小組件工具", "Clock widget tools");
         put("about_widget_tools_sub", "钉选到桌面 + 布局编辑入口（实验性）", "釘選到桌面 + 佈局編輯入口（實驗性）", "Pin-to-home + layout editor entries (experimental)");
         put("guide_btn", "查看 Agent 使用指南", "查看 Agent 使用指南", "Open Agent guide");
