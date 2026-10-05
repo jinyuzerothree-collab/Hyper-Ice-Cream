@@ -52,7 +52,7 @@ public class WidgetLayout {
     // ---------- 原有布局基线（占画布宽/高比例；y 为文字基线位置） ----------
     public static float baseX(String k) {
         if ("period".equals(k) || "lunar".equals(k)) return 0.42f;
-        if ("wxicon".equals(k)) return 0.05f;
+        if ("weather".equals(k)) return 0.28f; // 天气图标默认在左侧，文字右移
         return 0.05f;
     }
 
@@ -87,12 +87,11 @@ public class WidgetLayout {
         return e;
     }
 
-    /** 原有布局：全部零偏移、原始字号、粗体（2粗）；天气图标默认隐藏（原布局无图标） */
+    /** 原有布局：全部零偏移、原始字号、粗体（2粗）；天气图标默认开启（用户要求显示） */
     public final void resetDefault() {
         els.clear();
         for (String k : KEYS) {
             El e = new El();
-            if ("wxicon".equals(k)) e.on = false;
             els.put(k, e);
         }
     }

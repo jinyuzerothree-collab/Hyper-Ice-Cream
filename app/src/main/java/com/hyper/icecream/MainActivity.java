@@ -163,7 +163,56 @@ public class MainActivity extends Activity {
         applyGlobalBackground();
         switchPage(0);
         attachGlassDock(); // 真·液态玻璃：独立窗口 + blurBehind（API31+），失败则用内嵌 Dock
+        applyCommunityVisibility(); // 社区实验开关：控制底栏入口
         autoExportWidgetAssets(); // 修复"部署在先、导出逻辑在后"导致素材缺失：打开应用即补导出
+    }
+
+    /** 社区实验开关（关于页控制）：默认关闭 */
+    private boolean communityVisible() {
+        return getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                .getBoolean("show_community", false);
+    }
+
+    private void applyCommunityVisibility() {
+        boolean vis = communityVisible();
+        tabCommunity.setVisibility(vis ? View.VISIBLE : View.GONE);
+        if (glassTabs.size() > 1) {
+            glassTabs.get(1).setVisibility(vis ? View.VISIBLE : View.GONE);
+        }
+        if (!vis && currentPage == 1) switchPage(0);
+    }
+
+    /** 搭载端：auto 按屏幕最小宽判定；phone 隐藏平板专属（Dock 补丁）功能 */
+    private boolean isPhoneMode() {
+        String m = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                .getString("device_mode", "auto");
+        if ("phone".equals(m)) return true;
+        if ("tablet".equals(m)) return false;
+        return getResources().getConfiguration().smallestScreenWidthDp < 600;
+    }
+
+    /** 把三个 Dock 勾选写进 /data/system/hypericecream_dock.conf（守护脚本实时读取） */
+    private void writeDockConf() {
+        SharedPreferences sp = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE);
+        String conf = "hide_xiaoai=" + (sp.getBoolean("hide_xiaoai", true) ? 1 : 0) + "\n"
+                + "hide_search=" + (sp.getBoolean("hide_search", true) ? 1 : 0) + "\n"
+                + "hide_remote=" + (sp.getBoolean("hide_remote", true) ? 1 : 0) + "\n";
+        try {
+            File tmp = new File(getCacheDir(), "dock_conf");
+            java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp);
+            fo.write(conf.getBytes("UTF-8"));
+            fo.close();
+            String r = execSu("cp '" + tmp.getAbsolutePath()
+                    + "' /data/system/hypericecream_dock.conf"
+                    + " && chmod 644 /data/system/hypericecream_dock.conf"
+                    + " && echo DOCK-CONF-OK");
+            log(r.contains("DOCK-CONF-OK")
+                    ? "✅ Dock 配置已写入，守护 5 秒内自动应用（未生效请重启桌面）"
+                    : "写入失败: " + r);
+            tmp.delete();
+        } catch (Throwable t) {
+            log("Dock 配置写入失败: " + t);
+        }
     }
 
     /** 全局渐变背景：关于页同款渐变铺满全部页面 */
@@ -283,34 +332,36 @@ public class MainActivity extends Activity {
         tools.addView(permDetail, 3);
         checkPerms(false); // 静默首查
 
-        // ===== Dock 常驻图标样式（双方案：隐藏 / 圆角背景；部署主题时也会询问） =====
-        TextView t = new TextView(this);
-        t.setText(L10n.t(this, "dock_section"));
-        t.setTextSize(14);
-        t.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
-        t.setPadding(0, dp(16), 0, dp(6));
-        tools.addView(t);
-        final String[] opts = {L10n.t(this, "dock_none"), L10n.t(this, "dock_hidden"), L10n.t(this, "dock_round")};
-        final android.widget.RadioGroup rg = new android.widget.RadioGroup(this);
-        int cur = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE).getInt("dock_style", 0);
-        for (int i = 0; i < opts.length; i++) {
-            android.widget.RadioButton rb = new android.widget.RadioButton(this);
-            rb.setText(opts[i]);
-            rb.setId(100 + i);
-            rb.setChecked(cur == i);
-            rg.addView(rb);
+        // ===== Dock 常驻图标隐藏（实验性）：三图标独立开关，守护脚本读 /data/system/hypericecream_dock.conf =====
+        if (!isPhoneMode()) {
+            TextView t = new TextView(this);
+            t.setText(L10n.t(this, "dock_patch_section"));
+            t.setTextSize(14);
+            t.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+            t.setPadding(0, dp(16), 0, dp(6));
+            tools.addView(t);
+            String[][] dockItems = {
+                    {"hide_xiaoai", L10n.t(this, "dock_hide_xiaoai")},
+                    {"hide_search", L10n.t(this, "dock_hide_search")},
+                    {"hide_remote", L10n.t(this, "dock_hide_remote")},
+            };
+            for (String[] it : dockItems) {
+                android.widget.CheckBox cb = new android.widget.CheckBox(this);
+                cb.setText(it[1]);
+                cb.setChecked(getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                        .getBoolean(it[0], true));
+                cb.setOnCheckedChangeListener((b, on) -> {
+                    getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE)
+                            .edit().putBoolean(it[0], on).apply();
+                    writeDockConf();
+                });
+                tools.addView(cb);
+            }
+            TextView dockNote = new TextView(this);
+            dockNote.setText(L10n.t(this, "dock_patch_note"));
+            dockNote.setTextSize(11);
+            tools.addView(dockNote);
         }
-        rg.setOnCheckedChangeListener((g, id) -> {
-            int style = id - 100;
-            getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE).edit().putInt("dock_style", style).apply();
-            applyDockStyleToConf(style);
-            log("Dock 样式 = " + opts[style] + "（重启桌面生效；实验性，桌面支持性待验证）");
-        });
-        tools.addView(rg);
-        TextView dockNote = new TextView(this);
-        dockNote.setText(L10n.t(this, "dock_note"));
-        dockNote.setTextSize(11);
-        tools.addView(dockNote);
 
         // ===== 旧组件白名单管理 =====
         TextView t2 = new TextView(this);
@@ -373,44 +424,90 @@ public class MainActivity extends Activity {
         tools.addView(btnUnlockCfg);
     }
 
-    /** 开机自动解锁：密码存 /data/system/hypericecream_unlock.conf（仅 root 可写），
-     *  HyperHook 在 SystemUI 进程开机后 verify 凭据 + keyguardDone */
+    /** 开机自动跳过锁屏：指南式面板（AI Agent 远程调试用），状态勾实时可见 */
     private void askUnlockPin() {
+        SharedPreferences sp = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(8);
+        box.setPadding(p, 0, p, 0);
+
+        TextView use = new TextView(this);
+        use.setText("用途：供 AI Agent 远程调试平板。开机进入锁屏后，模块自动用此密码完成验证并解锁，无需人工输入。密码仅存本机。");
+        use.setTextSize(12);
+        box.addView(use);
+
         final android.widget.EditText in = new android.widget.EditText(this);
         in.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        in.setHint("当前锁屏密码（仅存本机配置）");
+        in.setHint("输入当前锁屏密码以启用 / 更换");
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        ilp.topMargin = dp(10);
+        in.setLayoutParams(ilp);
+        box.addView(in);
+
+        TextView st1 = new TextView(this);
+        TextView st2 = new TextView(this);
+        TextView st3 = new TextView(this);
+        Runnable refresh = () -> {
+            boolean en = sp.getBoolean("unlock_enabled", false);
+            String pin = sp.getString("unlock_pin", "");
+            st1.setText((en ? "\u2705 已启用" : "\u274c 未启用"));
+            st2.setText("当前密码：" + (en && !pin.isEmpty() ? pin : "未设置"));
+            st3.setText("写入 /data/system/hypericecream_unlock.conf 后重启生效；需 LSPosed 作用域含 SystemUI");
+            st1.setTextSize(13);
+            st2.setTextSize(13);
+            st3.setTextSize(12);
+            st1.setPadding(0, dp(10), 0, 2);
+            st2.setPadding(0, 0, 0, 2);
+        };
+        box.addView(st1);
+        box.addView(st2);
+        box.addView(st3);
+
         new AlertDialog.Builder(this)
                 .setTitle("开机自动跳过锁屏（实验性）")
-                .setMessage("开机进入锁屏后，模块自动用此密码验证并解锁。\n密码写入 /data/system/hypericecream_unlock.conf，普通应用不可读。\n填入当前锁屏密码：")
-                .setView(in)
-                .setNegativeButton("取消", null)
-                .setPositiveButton("启用", (d, w) -> {
+                .setView(box)
+                .setNeutralButton("禁用", (d, w) -> {
+                    sp.edit().putBoolean("unlock_enabled", false).apply();
+                    if (writeUnlockConf("", false)) log("开机自动跳过已禁用。");
+                })
+                .setNegativeButton("关闭", null)
+                .setPositiveButton("保存并启用", (d, w) -> {
                     String pin = in.getText().toString().trim();
                     if (pin.isEmpty()) {
                         log("密码为空，未启用。");
                         return;
                     }
-                    String cfg = "enabled=1\ntype=password\npin=" + pin + "\n";
-                    File tmp = new File(getCacheDir(), "unlock_conf");
-                    try {
-                        java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp);
-                        fo.write(cfg.getBytes("UTF-8"));
-                        fo.close();
-                        String r = execSu("cp '" + tmp.getAbsolutePath()
-                                + "' /data/system/hypericecream_unlock.conf"
-                                + " && chmod 644 /data/system/hypericecream_unlock.conf"
-                                + " && chown root:root /data/system/hypericecream_unlock.conf"
-                                + " && echo UNLOCK-CFG-OK");
-                        log(r.contains("UNLOCK-CFG-OK")
-                                ? "✅ 开机自动跳过已启用（重启生效，需模块作用域含 SystemUI）"
-                                : "写入失败: " + r);
-                        tmp.delete();
-                    } catch (Throwable t) {
-                        log("写入失败: " + t);
+                    if (writeUnlockConf(pin, true)) {
+                        sp.edit().putBoolean("unlock_enabled", true).putString("unlock_pin", pin).apply();
+                        log("\u2705 开机自动跳过已启用（重启生效，需模块作用域含 SystemUI）。");
                     }
+                    askUnlockPin(); // 重建面板显示最新状态
                 })
                 .show();
+    }
+
+    /** 写解锁配置；成功返回 true */
+    private boolean writeUnlockConf(String pin, boolean enable) {
+        String cfg = "enabled=" + (enable ? 1 : 0) + "\ntype=password\npin=" + pin + "\n";
+        File tmp = new File(getCacheDir(), "unlock_conf");
+        try {
+            java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp);
+            fo.write(cfg.getBytes("UTF-8"));
+            fo.close();
+            String r = execSu("cp '" + tmp.getAbsolutePath()
+                    + "' /data/system/hypericecream_unlock.conf"
+                    + " && chmod 644 /data/system/hypericecream_unlock.conf"
+                    + " && chown root:root /data/system/hypericecream_unlock.conf"
+                    + " && echo UNLOCK-CFG-OK");
+            tmp.delete();
+            return r.contains("UNLOCK-CFG-OK");
+        } catch (Throwable t) {
+            log("写入失败: " + t);
+            return false;
+        }
     }
 
     private LinearLayout rootCard, lspCard;
@@ -717,7 +814,11 @@ public class MainActivity extends Activity {
                         float dx = e2.getX() - e1.getX();
                         float dy = e2.getY() - e1.getY();
                         if (Math.abs(dx) > dp(80) && Math.abs(dx) > Math.abs(dy) * 2) {
-                            int next = currentPage + (dx < 0 ? 1 : -1);
+                            int step = dx < 0 ? 1 : -1;
+                            int next = currentPage + step;
+                            while (next >= 0 && next <= 3 && next == 1 && !communityVisible()) {
+                                next += step; // 跳过被隐藏的社区页
+                            }
                             if (next >= 0 && next <= 3 && next != currentPage) {
                                 switchPage(next);
                                 return true;
@@ -914,6 +1015,7 @@ public class MainActivity extends Activity {
     }
 
     private void switchPage(int idx) {
+        if (idx == 1 && !communityVisible()) return; // 社区实验开关关闭时不可进入
         if (idx == currentPage && findViewById(idx == 0 ? R.id.page_home
                 : idx == 1 ? R.id.page_community
                 : idx == 2 ? R.id.page_tools : R.id.page_about).getVisibility() == View.VISIBLE) {
@@ -1321,26 +1423,26 @@ public class MainActivity extends Activity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.HORIZONTAL);
         box.setGravity(android.view.Gravity.CENTER);
-        android.widget.EditText wIn = new android.widget.EditText(this);
-        wIn.setText(String.valueOf(defW));
-        wIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        wIn.setGravity(android.view.Gravity.CENTER);
         android.widget.EditText hIn = new android.widget.EditText(this);
         hIn.setText(String.valueOf(defH2));
         hIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         hIn.setGravity(android.view.Gravity.CENTER);
+        android.widget.EditText wIn = new android.widget.EditText(this);
+        wIn.setText(String.valueOf(defW));
+        wIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        wIn.setGravity(android.view.Gravity.CENTER);
         LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         ep.setMargins(dp(12), 0, dp(12), 0);
-        wIn.setLayoutParams(ep);
         hIn.setLayoutParams(ep);
-        box.addView(wIn);
-        box.addView(new TextView(this) {{ setText("×"); }});
+        wIn.setLayoutParams(ep);
         box.addView(hIn);
+        box.addView(new TextView(this) {{ setText("×"); }});
+        box.addView(wIn);
 
         new AlertDialog.Builder(this)
                 .setTitle("小组件尺寸：" + shortName)
-                .setMessage("选择宽 × 高（桌面格数，1–6）。\n将按所选尺寸注入组件声明。")
+                .setMessage("选择高 × 宽（桌面格数，1–6）。\n仅用于计算间距——部署后可在工具页「布局编辑」自行调整（实验性）。")
                 .setView(box)
                 .setCancelable(false)
                 .setNegativeButton("默认", (d, w) -> {

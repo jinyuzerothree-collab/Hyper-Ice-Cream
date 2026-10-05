@@ -165,6 +165,21 @@ public class AboutPage {
         lang.addView(langRow(act, night));
         body.addView(cardWrap(act, lang));
 
+        // ===== 搭载端 + 实验性功能 =====
+        body.addView(sectionLabel(act, night, L10n.t(act, "device_mode")));
+        LinearLayout devMode = whiteCard(act, night);
+        devMode.addView(modeRow(act, night));
+        devMode.addView(switchRow(act, night, L10n.t(act, "about_community"),
+                L10n.t(act, "about_community_sub"), "show_community",
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        android.app.Activity a = act;
+                        a.recreate();
+                    }
+                }));
+        body.addView(cardWrap(act, devMode));
+
         // ===== 译者 =====
         body.addView(sectionLabel(act, night, L10n.t(act, "translator")));
         LinearLayout tr = whiteCard(act, night);
@@ -498,6 +513,90 @@ public class AboutPage {
                     })
                     .show();
         });
+        return r;
+    }
+
+    /** 搭载端选择行：自动识别 / 平板 / 手机（prefs device_mode，切换后 recreate 重载功能集） */
+    private static View modeRow(final Activity act, boolean night) {
+        LinearLayout r = new LinearLayout(act);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(0, dp(act, 10), 0, dp(act, 10));
+        TextView l = new TextView(act);
+        l.setText(L10n.t(act, "device_mode"));
+        l.setTextSize(16);
+        l.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        l.setTextColor(night ? 0xFFF0F0F0 : 0xFF111111);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        l.setLayoutParams(llp);
+        r.addView(l);
+        TextView cur = new TextView(act);
+        cur.setText(deviceModeName(act));
+        cur.setTextSize(13);
+        cur.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        cur.setTextColor(night ? 0xAAFFFFFF : 0xAA333333);
+        cur.setPadding(0, 0, dp(act, 8), 0);
+        r.addView(cur);
+        TextView chev = new TextView(act);
+        chev.setText("›");
+        chev.setTextSize(20);
+        chev.setTypeface(Typeface.DEFAULT_BOLD);
+        chev.setTextColor(night ? 0x88FFFFFF : 0x88000000);
+        r.addView(chev);
+        r.setOnClickListener(v -> {
+            final String[] opts = {"auto", "tablet", "phone"};
+            String[] names = {L10n.t(act, "device_auto"), L10n.t(act, "device_tablet"),
+                    L10n.t(act, "device_phone")};
+            new android.app.AlertDialog.Builder(act)
+                    .setTitle(L10n.t(act, "device_mode"))
+                    .setMessage(L10n.t(act, "device_mode_sub"))
+                    .setItems(names, (d, w) -> {
+                        act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                                .edit().putString("device_mode", opts[w]).apply();
+                        act.recreate();
+                    })
+                    .show();
+        });
+        return r;
+    }
+
+    private static String deviceModeName(Activity act) {
+        String m = act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                .getString("device_mode", "auto");
+        if ("phone".equals(m)) return L10n.t(act, "device_phone");
+        if ("tablet".equals(m)) return L10n.t(act, "device_tablet");
+        boolean tablet = act.getResources().getConfiguration().smallestScreenWidthDp >= 600;
+        return (tablet ? L10n.t(act, "device_tablet") : L10n.t(act, "device_phone"))
+                + " (" + L10n.t(act, "device_auto") + ")";
+    }
+
+    /** 通用开关行（Switch）：prefs key + 可选切换后回调（如 recreate 刷新底栏） */
+    private static View switchRow(final Activity act, boolean night, String label,
+                                  String sub, final String key, final Runnable after) {
+        LinearLayout r = new LinearLayout(act);
+        r.setOrientation(LinearLayout.VERTICAL);
+        r.setPadding(0, dp(act, 10), 0, dp(act, 10));
+        LinearLayout row = new LinearLayout(act);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout col = new LinearLayout(act);
+        col.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        col.setLayoutParams(clp);
+        col.addView(txt(act, label, 16, true, night ? 0xFFF0F0F0 : 0xFF111111, sub == null ? 0 : 2));
+        if (sub != null) col.addView(txt(act, sub, 12, true, night ? 0xAAFFFFFF : 0xAA333333, 0));
+        row.addView(col);
+        final android.widget.Switch sw = new android.widget.Switch(act);
+        sw.setChecked(act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                .getBoolean(key, false));
+        sw.setOnCheckedChangeListener((b, on) -> {
+            act.getSharedPreferences("community_pref", android.content.Context.MODE_PRIVATE)
+                    .edit().putBoolean(key, on).apply();
+            if (after != null) after.run();
+        });
+        row.addView(sw);
+        r.addView(row);
         return r;
     }
 

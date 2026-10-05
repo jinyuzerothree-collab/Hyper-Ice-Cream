@@ -93,6 +93,20 @@ public class L10n {
         put("wl_el_lunar", "农历", "農曆", "Lunar date");
         put("wl_el_weather", "天气", "天氣", "Weather");
         put("wl_el_wxicon", "天气图标", "天氣圖標", "Weather icon");
+        // v3.2 dock 三开关 / 社区实验开关 / 搭载端
+        put("dock_patch_section", "Dock 常驻图标隐藏（实验性）", "Dock 常駐圖標隱藏（實驗性）", "Hide dock resident icons (experimental)");
+        put("dock_hide_xiaoai", "隐藏超级小爱", "隱藏超級小愛", "Hide XiaoAI shortcut");
+        put("dock_hide_search", "隐藏搜索", "隱藏搜尋", "Hide search shortcut");
+        put("dock_hide_remote", "隐藏手机远控（互联设备）", "隱藏手機遠控（互聯設備）", "Hide phone remote (interconnect device)");
+        put("dock_patch_note", "勾选后写入配置，守护脚本 5 秒内自动生效（未生效请重启桌面）。仅平板（Flutter 桌面）有效。方案基于 HomeTweaks（CypressFjord）的原生注入思路。", "勾選後寫入配置，守護腳本 5 秒內自動生效（未生效請重啟桌面）。僅平板（Flutter 桌面）有效。方案基於 HomeTweaks（CypressFjord）的原生注入思路。", "Saved to config; daemon applies within 5s (restart launcher if needed). Pad (Flutter launcher) only. Approach inspired by HomeTweaks (CypressFjord).");
+        put("about_exp", "实验性功能", "實驗性功能", "Experimental");
+        put("about_community", "社区主题库", "社區主題庫", "Community themes");
+        put("about_community_sub", "开启后底栏显示社区入口（默认关闭）", "開啟後底欄顯示社區入口（默認關閉）", "Show the community tab in dock (off by default)");
+        put("device_mode", "搭载端", "搭載端", "Device profile");
+        put("device_mode_sub", "决定显示哪套功能（自动按屏幕识别）", "決定顯示哪套功能（自動按屏幕識別）", "Choose which feature set to show (auto-detected)");
+        put("device_auto", "自动识别", "自動識別", "Auto");
+        put("device_tablet", "平板", "平板", "Tablet");
+        put("device_phone", "手机", "手機", "Phone");
         put("wl_show", "显示", "顯示", "Show");
         put("wl_pos_x", "左右偏移", "左右偏移", "X offset");
         put("wl_pos_y", "上下偏移", "上下偏移", "Y offset");

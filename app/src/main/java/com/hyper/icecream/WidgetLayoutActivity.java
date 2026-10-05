@@ -318,7 +318,27 @@ public class WidgetLayoutActivity extends Activity {
 
     private void renderPreview() {
         try {
-            Bitmap b = HyperWidgetProvider.renderCanvas(this, 480, 960, 480);
+            int w = 480, h = 960, wDp = 480;
+            try {
+                // 优先用桌面已添加组件的真实宽高（解决预览与桌面不同步）
+                android.appwidget.AppWidgetManager mgr =
+                        android.appwidget.AppWidgetManager.getInstance(this);
+                int[] ids = mgr.getAppWidgetIds(
+                        new android.content.ComponentName(this, HyperWidgetProvider.class));
+                if (ids.length > 0) {
+                    android.os.Bundle o = mgr.getAppWidgetOptions(ids[0]);
+                    float den = getResources().getDisplayMetrics().density;
+                    int wDpR = Math.max(o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110),
+                            o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 110));
+                    int hDpR = Math.max(o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 220),
+                            o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 220));
+                    w = Math.max(120, Math.min(1200, (int) (wDpR * den)));
+                    h = Math.max(240, Math.min(2400, (int) (hDpR * den)));
+                    wDp = Math.max(1, wDpR);
+                }
+            } catch (Throwable ig) {
+            }
+            Bitmap b = HyperWidgetProvider.renderCanvas(this, w, h, wDp);
             preview.setImageBitmap(b);
         } catch (Throwable ignored) {
         }
