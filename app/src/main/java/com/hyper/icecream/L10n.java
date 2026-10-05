@@ -92,6 +92,7 @@ public class L10n {
         put("wl_el_date", "日期", "日期", "Date");
         put("wl_el_lunar", "农历", "農曆", "Lunar date");
         put("wl_el_weather", "天气", "天氣", "Weather");
+        put("wl_el_wxicon", "天气图标", "天氣圖標", "Weather icon");
         put("wl_show", "显示", "顯示", "Show");
         put("wl_pos_x", "左右偏移", "左右偏移", "X offset");
         put("wl_pos_y", "上下偏移", "上下偏移", "Y offset");

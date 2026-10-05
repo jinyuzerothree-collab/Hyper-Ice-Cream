@@ -46,11 +46,13 @@ public class WidgetLayout {
         }
     }
 
-    public static final String[] KEYS = {"dow", "period", "time", "date", "lunar", "weather"};
+    public static final String[] KEYS = {
+            "dow", "period", "time", "date", "lunar", "weather", "wxicon"};
 
     // ---------- 原有布局基线（占画布宽/高比例；y 为文字基线位置） ----------
     public static float baseX(String k) {
         if ("period".equals(k) || "lunar".equals(k)) return 0.42f;
+        if ("wxicon".equals(k)) return 0.05f;
         return 0.05f;
     }
 
@@ -58,12 +60,14 @@ public class WidgetLayout {
         if ("dow".equals(k) || "period".equals(k)) return 0.10f;
         if ("time".equals(k)) return 0.30f;
         if ("date".equals(k) || "lunar".equals(k)) return 0.62f;
+        if ("wxicon".equals(k)) return 0.80f;
         return 0.82f; // weather
     }
 
     public static float baseS(String k) {
         if ("time".equals(k)) return 0.32f;
         if ("date".equals(k) || "lunar".equals(k)) return 0.09f;
+        if ("wxicon".equals(k)) return 0.22f;
         if ("weather".equals(k)) return 0.085f;
         return 0.075f; // dow / period
     }
@@ -83,10 +87,14 @@ public class WidgetLayout {
         return e;
     }
 
-    /** 原有布局：全部零偏移、原始字号、粗体（2粗） */
+    /** 原有布局：全部零偏移、原始字号、粗体（2粗）；天气图标默认隐藏（原布局无图标） */
     public final void resetDefault() {
         els.clear();
-        for (String k : KEYS) els.put(k, new El());
+        for (String k : KEYS) {
+            El e = new El();
+            if ("wxicon".equals(k)) e.on = false;
+            els.put(k, e);
+        }
     }
 
     /** 主题复刻预设：时间放大上提，信息行整体下沉拉开层次 */

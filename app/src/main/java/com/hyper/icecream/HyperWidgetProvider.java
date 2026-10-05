@@ -41,6 +41,9 @@ public class HyperWidgetProvider extends AppWidgetProvider {
     private static volatile String wxCache = null;
     private static volatile long wxAt = 0;
     private static volatile boolean wxFetching = false;
+    // 天气类别（画图标用）：0晴 1多云 2阴 3雨 4雪 5雷 6雾
+    private static volatile int wxCat = -1;
+    private static volatile int wxCatNet = -1; // 网络结果独立缓存（30 分钟）
 
     @Override
     public void onUpdate(Context ctx, AppWidgetManager mgr, int[] ids) {
@@ -166,7 +169,117 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                 new SimpleDateFormat("M月d日", Locale.CHINA).format(new Date()));
         drawEl(cv, p, w, h, pxPerDp, layout, "lunar", getLunarString());
         drawEl(cv, p, w, h, pxPerDp, layout, "weather", getWeatherText(ctx));
+        drawWxIconEl(cv, p, w, h, pxPerDp, layout);
         return out;
+    }
+
+    /** 天气图标元素：Canvas 手绘晴/多云/阴/雨/雪/雷/雾，底部对齐 y 基线 */
+    private static void drawWxIconEl(Canvas cv, Paint p, int w, int h, float pxPerDp,
+                                     WidgetLayout layout) {
+        WidgetLayout.El e = layout.el("wxicon");
+        if (!e.on) return;
+        int cat = wxCat;
+        if (cat < 0) return;
+        float size = Math.max(16f, WidgetLayout.baseS("wxicon") * h * e.s);
+        float left = WidgetLayout.baseX("wxicon") * w + e.dx * pxPerDp;
+        float bottom = WidgetLayout.baseY("wxicon") * h + e.dy * pxPerDp;
+        Paint ip = new Paint(Paint.ANTI_ALIAS_FLAG);
+        ip.setShadowLayer(6, 0, 3, 0x66000000);
+        drawWxIcon(cv, ip, cat, left, bottom - size, size, e.c);
+    }
+
+    private static void drawWxIcon(Canvas cv, Paint p, int cat, float left, float top,
+                                   float size, int tint) {
+        float cx = left + size * 0.5f;
+        float cy = top + size * 0.42f;
+        float r = size * 0.24f;
+        switch (cat) {
+            case 0: // 晴：太阳 + 光线
+                p.setColor(tint == 0xFFFFFFFF ? 0xFFFFD54F : tint);
+                p.setStyle(Paint.Style.FILL);
+                cv.drawCircle(cx, cy, r, p);
+                p.setStrokeWidth(size * 0.045f);
+                p.setStyle(Paint.Style.STROKE);
+                for (int i = 0; i < 8; i++) {
+                    double a = Math.PI / 4 * i;
+                    float x1 = cx + (float) Math.cos(a) * r * 1.45f;
+                    float y1 = cy + (float) Math.sin(a) * r * 1.45f;
+                    float x2 = cx + (float) Math.cos(a) * r * 1.85f;
+                    float y2 = cy + (float) Math.sin(a) * r * 1.85f;
+                    cv.drawLine(x1, y1, x2, y2, p);
+                }
+                break;
+            case 1: // 多云：小太阳 + 白云
+                p.setColor(tint == 0xFFFFFFFF ? 0xFFFFD54F : tint);
+                p.setStyle(Paint.Style.FILL);
+                cv.drawCircle(cx - size * 0.16f, cy - size * 0.12f, r * 0.8f, p);
+                drawCloud(cv, p, cx + size * 0.10f, cy + size * 0.16f, size * 0.62f,
+                        0xFFF5F7FA);
+                break;
+            case 2: // 阴：灰云
+                drawCloud(cv, p, cx, cy + size * 0.10f, size * 0.78f, 0xFFB0BEC5);
+                break;
+            case 3: // 雨：白云 + 蓝雨丝
+                drawCloud(cv, p, cx, cy, size * 0.72f, 0xFFECEFF1);
+                p.setColor(0xFF64B5F6);
+                p.setStrokeWidth(size * 0.05f);
+                p.setStyle(Paint.Style.STROKE);
+                for (int i = 0; i < 3; i++) {
+                    float x = left + size * (0.24f + i * 0.26f);
+                    cv.drawLine(x, top + size * 0.68f, x - size * 0.06f, top + size * 0.88f, p);
+                }
+                break;
+            case 4: // 雪：白云 + 雪点
+                drawCloud(cv, p, cx, cy, size * 0.72f, 0xFFECEFF1);
+                p.setColor(0xFFE3F2FD);
+                p.setStyle(Paint.Style.FILL);
+                for (int i = 0; i < 4; i++) {
+                    float x = left + size * (0.22f + i * 0.20f);
+                    float y = top + size * (0.72f + (i % 2) * 0.10f);
+                    cv.drawCircle(x, y, size * 0.045f, p);
+                }
+                break;
+            case 5: // 雷：暗云 + 闪电
+                drawCloud(cv, p, cx, cy, size * 0.72f, 0xFF90A4AE);
+                p.setColor(0xFFFFCA28);
+                p.setStyle(Paint.Style.FILL);
+                android.graphics.Path bolt = new android.graphics.Path();
+                float bx = cx;
+                float by = top + size * 0.58f;
+                bolt.moveTo(bx + size * 0.02f, by);
+                bolt.lineTo(bx - size * 0.10f, by + size * 0.22f);
+                bolt.lineTo(bx + size * 0.02f, by + size * 0.20f);
+                bolt.lineTo(bx - size * 0.04f, by + size * 0.42f);
+                bolt.lineTo(bx + size * 0.14f, by + size * 0.14f);
+                bolt.lineTo(bx + size * 0.02f, by + size * 0.16f);
+                bolt.lineTo(bx + size * 0.12f, by);
+                bolt.close();
+                cv.drawPath(bolt, p);
+                break;
+            default: // 雾：灰云 + 横线
+                drawCloud(cv, p, cx, cy - size * 0.08f, size * 0.70f, 0xFFCFD8DC);
+                p.setColor(0xFFB0BEC5);
+                p.setStrokeWidth(size * 0.045f);
+                p.setStyle(Paint.Style.STROKE);
+                cv.drawLine(left + size * 0.15f, top + size * 0.80f,
+                        left + size * 0.85f, top + size * 0.80f, p);
+                cv.drawLine(left + size * 0.25f, top + size * 0.92f,
+                        left + size * 0.75f, top + size * 0.92f, p);
+                break;
+        }
+    }
+
+    /** 白云：三个圆 + 底部圆角矩形 */
+    private static void drawCloud(Canvas cv, Paint p, float cx, float cy, float w, int color) {
+        float h = w * 0.62f;
+        p.setColor(color);
+        p.setStyle(Paint.Style.FILL);
+        cv.drawCircle(cx - w * 0.22f, cy, h * 0.34f, p);
+        cv.drawCircle(cx, cy - h * 0.16f, h * 0.44f, p);
+        cv.drawCircle(cx + w * 0.24f, cy + h * 0.02f, h * 0.30f, p);
+        android.graphics.RectF body = new android.graphics.RectF(
+                cx - w * 0.40f, cy + h * 0.02f, cx + w * 0.40f, cy + h * 0.34f);
+        cv.drawRoundRect(body, h * 0.18f, h * 0.18f, p);
     }
 
     /** 单元素绘制：基线坐标 + dp 偏移，字号 = 基线字号 × 倍率，全部左对齐 */
@@ -225,6 +338,8 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                     String[] types = {"晴","多云","阴","雨","暴雨","雷雨","雪"};
                     int wt = cur.getInt(wtIdx);
                     if (wt < types.length) r = types[wt] + " " + r;
+                    // 0晴 1多云 2阴 3雨 4暴雨 5雷雨 6雪 → 图标类别
+                    wxCat = (wt == 4) ? 3 : (wt == 5) ? 5 : (wt == 6) ? 4 : wt;
                 }
             }
             if (cur != null) cur.close();
@@ -270,13 +385,16 @@ public class HyperWidgetProvider extends AppWidgetProvider {
                         + lat + "&longitude=" + lon + "&current_weather=true");
                 if (w == null || !w.has("current_weather")) return;
                 JSONObject cw = w.getJSONObject("current_weather");
-                text = wmoText(cw.optInt("weathercode", 0))
+                int code = cw.optInt("weathercode", 0);
+                text = wmoText(code)
                         + " " + Math.round(cw.optDouble("temperature", 0)) + "°";
+                wxCatNet = wmoCat(code);
             } catch (Throwable ignored) {
             } finally {
                 wxFetching = false;
             }
             if (text.isEmpty()) return;
+            if (wxCat < 0 && wxCatNet >= 0) wxCat = wxCatNet; // 系统源没给就用网络的
             try {
                 JSONObject o = new JSONObject();
                 o.put("t", System.currentTimeMillis());
@@ -325,6 +443,20 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         if (code == 85 || code == 86) return "阵雪";
         if (code >= 95) return "雷雨";
         return "多云";
+    }
+
+    /** WMO 天气代码 → 图标类别（0晴 1多云 2阴 3雨 4雪 5雷 6雾） */
+    private static int wmoCat(int code) {
+        if (code == 0) return 0;
+        if (code == 1 || code == 2) return 1;
+        if (code == 3) return 2;
+        if (code == 45 || code == 48) return 6;
+        if (code >= 51 && code <= 67) return 3;
+        if (code >= 71 && code <= 77) return 4;
+        if (code >= 80 && code <= 82) return 3;
+        if (code == 85 || code == 86) return 4;
+        if (code >= 95) return 5;
+        return 1;
     }
 
     private static String getLunarString() {

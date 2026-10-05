@@ -650,6 +650,16 @@ public class HyperHook implements IXposedHookLoadPackage {
             return;
         }
         Class<?> c = m.getClass();
+        // 调试：dump 全部方法名（一次性）
+        synchronized (loggedOnce) {
+            if (loggedOnce.add("kvmDump")) {
+                StringBuilder sb = new StringBuilder("bootUnlock mediator methods:");
+                for (Method mm : c.getDeclaredMethods()) {
+                    sb.append(' ').append(mm.getName());
+                }
+                XposedBridge.log(TAG + ": " + sb);
+            }
+        }
         for (Method mm : c.getDeclaredMethods()) {
             if (!"keyguardDone".equals(mm.getName())) continue;
             Class<?>[] pt = mm.getParameterTypes();
@@ -675,6 +685,65 @@ public class HyperHook implements IXposedHookLoadPackage {
             XposedBridge.log(TAG + ": bootUnlock handleKeyguardDone OK");
             return;
         } catch (Throwable ig) {
+        }
+        // HyperOS: post 到 mediator 自己的 Handler 线程，按默认值填充调用
+        Object handler = null;
+        for (Field f : c.getDeclaredFields()) {
+            if (android.os.Handler.class.isAssignableFrom(f.getType())) {
+                try {
+                    f.setAccessible(true);
+                    handler = f.get(m);
+                    break;
+                } catch (Throwable ig2) {
+                }
+            }
+        }
+        if (handler instanceof android.os.Handler) {
+            final Object fm = m;
+            final Class<?> fc = c;
+            ((android.os.Handler) handler).post(new Runnable() {
+                @Override
+                public void run() {
+                    for (String name : new String[]{"keyguardDone", "handleKeyguardDone",
+                            "tryKeyguardDone"}) {
+                        for (Method mm : fc.getDeclaredMethods()) {
+                            if (!name.equals(mm.getName())) continue;
+                            try {
+                                mm.setAccessible(true);
+                                Class<?>[] pt = mm.getParameterTypes();
+                                Object[] args = new Object[pt.length];
+                                for (int i = 0; i < pt.length; i++) {
+                                    if (pt[i] == boolean.class) args[i] = Boolean.TRUE;
+                                    else if (pt[i] == int.class) args[i] = 0;
+                                    else if (pt[i] == long.class) args[i] = 0L;
+                                    else args[i] = null;
+                                }
+                                mm.invoke(fm, args);
+                                XposedBridge.log(TAG + ": bootUnlock " + name
+                                        + "/" + pt.length + " OK");
+                                return;
+                            } catch (Throwable t) {
+                                XposedBridge.log(TAG + ": bootUnlock " + name + ": " + t);
+                            }
+                        }
+                    }
+                }
+            });
+            return;
+        }
+        // 兜底：setShowingLocked(false)（milinkhook 同款）
+        for (Method mm : c.getDeclaredMethods()) {
+            if (!"setShowingLocked".equals(mm.getName())) continue;
+            Class<?>[] pt = mm.getParameterTypes();
+            try {
+                mm.setAccessible(true);
+                if (pt.length == 1 && pt[0] == boolean.class) {
+                    mm.invoke(m, Boolean.FALSE);
+                    XposedBridge.log(TAG + ": bootUnlock setShowingLocked(false) OK");
+                    return;
+                }
+            } catch (Throwable ig) {
+            }
         }
         XposedBridge.log(TAG + ": bootUnlock no keyguardDone variant found");
     }
@@ -728,10 +797,23 @@ public class HyperHook implements IXposedHookLoadPackage {
                             }
                             Object resp = lpuCls.getMethod("verifyCredential",
                                     credCls, int.class, int.class).invoke(lpu, cred, 0, 0);
+                            // 0=VERIFY_OK, 1=RETRY, -1=ERROR；isOk() 反射失败时兜底
                             Boolean ok = Boolean.FALSE;
                             try {
                                 ok = (Boolean) resp.getClass().getMethod("isOk").invoke(resp);
                             } catch (Throwable ig) {
+                                XposedBridge.log(TAG + ": bootUnlock isOk() reflect fail: " + ig);
+                            }
+                            if (!Boolean.TRUE.equals(ok)) {
+                                try {
+                                    Object rc = resp.getClass().getMethod("getResponseCode").invoke(resp);
+                                    if (rc instanceof Integer && ((Integer) rc) == 0) ok = Boolean.TRUE;
+                                } catch (Throwable ig2) {
+                                }
+                            }
+                            if (!Boolean.TRUE.equals(ok)) {
+                                Object f = getFieldVal(resp, "mResponseCode");
+                                if (f instanceof Integer && ((Integer) f) == 0) ok = Boolean.TRUE;
                             }
                             XposedBridge.log(TAG + ": bootUnlock verify#" + i
                                     + " ok=" + ok + " resp=" + resp);

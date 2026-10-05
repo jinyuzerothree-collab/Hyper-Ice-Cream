@@ -47,7 +47,7 @@ public class IconPacks {
     private static final String[] PROBE_ACTIONS = {
             "org.adw.launcher.THEMES", "org.adw.launcher.theme.DRAWER"};
 
-    /** 检测已装图标包：intent 声明 + 必须能取到 appfilter 映射 */
+    /** 检测已装图标包：intent 快路径 + 全量扫描 appfilter 兜底（Arcticons 等不声明 THEMES intent） */
     public static List<Pack> detect(Context ctx) {
         PackageManager pm = ctx.getPackageManager();
         LinkedHashMap<String, Pack> out = new LinkedHashMap<>();
@@ -59,19 +59,40 @@ public class IconPacks {
                     String pkg = r.activityInfo.packageName;
                     if (out.containsKey(pkg)) continue;
                     if (!hasAppfilter(ctx, pkg)) continue;
-                    String label;
-                    try {
-                        label = String.valueOf(pm.getApplicationLabel(
-                                pm.getApplicationInfo(pkg, 0)));
-                    } catch (Throwable t) {
-                        label = pkg;
+                    addPack(pm, out, pkg);
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        if (out.isEmpty()) {
+            // 兜底：遍历全部已装应用查 assets/appfilter.xml
+            try {
+                for (android.content.pm.PackageInfo pi : pm.getInstalledPackages(0)) {
+                    if (pi == null || pi.applicationInfo == null) continue;
+                    android.content.pm.ApplicationInfo ai = pi.applicationInfo;
+                    String pkg = ai.packageName;
+                    if (out.containsKey(pkg)) continue;
+                    if ((ai.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+                            && (ai.flags & android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0) {
+                        continue; // 跳过纯系统包（图标包都是三方或更新过的）
                     }
-                    out.put(pkg, new Pack(pkg, label));
+                    if (!hasAppfilter(ctx, pkg)) continue;
+                    addPack(pm, out, pkg);
                 }
             } catch (Throwable ignored) {
             }
         }
         return new ArrayList<>(out.values());
+    }
+
+    private static void addPack(PackageManager pm, LinkedHashMap<String, Pack> out, String pkg) {
+        String label;
+        try {
+            label = String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)));
+        } catch (Throwable t) {
+            label = pkg;
+        }
+        out.put(pkg, new Pack(pkg, label));
     }
 
     private static boolean hasAppfilter(Context ctx, String pkg) {
