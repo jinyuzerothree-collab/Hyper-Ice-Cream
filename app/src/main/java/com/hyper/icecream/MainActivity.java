@@ -209,12 +209,14 @@ public class MainActivity extends Activity {
         return getResources().getConfiguration().smallestScreenWidthDp < 600;
     }
 
-    /** 把三个 Dock 勾选写进 /data/system/hypericecream_dock.conf（守护脚本实时读取） */
+    /** 把 Dock 配置写进 /data/system/hypericecream_dock.conf（守护脚本实时读取） */
     private void writeDockConf() {
         SharedPreferences sp = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE);
         String conf = "hide_xiaoai=" + (sp.getBoolean("hide_xiaoai", true) ? 1 : 0) + "\n"
                 + "hide_search=" + (sp.getBoolean("hide_search", true) ? 1 : 0) + "\n"
-                + "hide_remote=" + (sp.getBoolean("hide_remote", true) ? 1 : 0) + "\n";
+                + "hide_remote=" + (sp.getBoolean("hide_remote", true) ? 1 : 0) + "\n"
+                + "recents_count=" + sp.getInt("recents_count", 0) + "\n"
+                + "dock_max=" + sp.getInt("dock_max", 0) + "\n";
         try {
             File tmp = new File(getCacheDir(), "dock_conf");
             java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp);
@@ -426,6 +428,56 @@ public class MainActivity extends Activity {
                 });
                 tools.addView(cb);
             }
+            // 数量自定义：最近应用 N + dock 应用容量
+            SharedPreferences dsp = getSharedPreferences(COMMUNITY_PREF, MODE_PRIVATE);
+            LinearLayout countRow = new LinearLayout(this);
+            countRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            TextView l1 = new TextView(this);
+            l1.setText("最近应用数量（1-20，0=原生）");
+            l1.setTextSize(13);
+            countRow.addView(l1);
+            final android.widget.EditText rnIn = new android.widget.EditText(this);
+            rnIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            rnIn.setText(String.valueOf(dsp.getInt("recents_count", 0)));
+            rnIn.setGravity(android.view.Gravity.CENTER);
+            LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(dp(56),
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            rlp.leftMargin = dp(8);
+            rnIn.setLayoutParams(rlp);
+            countRow.addView(rnIn);
+            tools.addView(countRow);
+
+            LinearLayout countRow2 = new LinearLayout(this);
+            countRow2.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            TextView l2 = new TextView(this);
+            l2.setText("Dock 应用容量（1-20，0=原生 5）");
+            l2.setTextSize(13);
+            countRow2.addView(l2);
+            final android.widget.EditText dnIn = new android.widget.EditText(this);
+            dnIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            dnIn.setText(String.valueOf(dsp.getInt("dock_max", 0)));
+            dnIn.setGravity(android.view.Gravity.CENTER);
+            dnIn.setLayoutParams(rlp);
+            countRow2.addView(dnIn);
+            tools.addView(countRow2);
+
+            Button applyCounts = new Button(this);
+            applyCounts.setText("应用数量设置");
+            applyCounts.setOnClickListener(v -> {
+                int rn = 0, dn = 0;
+                try {
+                    rn = Math.max(0, Math.min(20, Integer.parseInt(rnIn.getText().toString())));
+                } catch (Throwable ig) {
+                }
+                try {
+                    dn = Math.max(0, Math.min(20, Integer.parseInt(dnIn.getText().toString())));
+                } catch (Throwable ig) {
+                }
+                dsp.edit().putInt("recents_count", rn).putInt("dock_max", dn).apply();
+                writeDockConf();
+            });
+            tools.addView(applyCounts);
+
             TextView dockNote = new TextView(this);
             dockNote.setText(L10n.t(this, "dock_patch_note"));
             dockNote.setTextSize(11);
