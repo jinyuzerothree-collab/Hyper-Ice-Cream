@@ -327,6 +327,22 @@ public class MainActivity extends Activity {
         wlNote.setText("勾选后写入白名单并保存；模块作用域需含\ncom.miui.home + android(系统框架)，重启生效。");
         wlNote.setTextSize(11);
         tools.addView(wlNote);
+
+        // ===== 图标包导入（实验性）：第三方图标包 → MIUI icons 组件 → 现有部署管线 =====
+        TextView t3 = new TextView(this);
+        t3.setText(L10n.t(this, "ik_section"));
+        t3.setTextSize(14);
+        t3.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+        t3.setPadding(0, dp(16), 0, dp(6));
+        tools.addView(t3);
+        Button ikScan = new Button(this);
+        ikScan.setText(L10n.t(this, "ik_scan"));
+        ikScan.setOnClickListener(v -> scanIconPacks());
+        tools.addView(ikScan);
+        TextView ikNote = new TextView(this);
+        ikNote.setText(L10n.t(this, "ik_note"));
+        ikNote.setTextSize(11);
+        tools.addView(ikNote);
     }
 
     private LinearLayout rootCard, lspCard;
@@ -492,6 +508,91 @@ public class MainActivity extends Activity {
         ((LinearLayout) pageCommunity.getChildAt(0)).setPadding(dp(20), top + dp(8), dp(20), dp(8));
         ((LinearLayout) pageTools.getChildAt(0)).setPadding(dp(20), top + dp(8), dp(20), dp(20));
         // 关于页自身 padding 在 AboutPage 内部（64dp 顶部已够）
+    }
+
+    // ---------- 图标包导入（实验性） ----------
+
+    private void scanIconPacks() {
+        log("扫描已装图标包…");
+        new Thread(() -> {
+            final java.util.List<IconPacks.Pack> packs = IconPacks.detect(this);
+            runOnUiThread(() -> {
+                if (packs.isEmpty()) {
+                    log(L10n.t(this, "ik_none"));
+                    return;
+                }
+                String[] items = new String[packs.size()];
+                for (int i = 0; i < packs.size(); i++) {
+                    items[i] = packs.get(i).label + "（" + packs.get(i).pkg + "）";
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle(L10n.t(this, "ik_pick_title"))
+                        .setItems(items, (d, w) -> convertAndOfferPack(packs.get(w)))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            });
+        }, "ik-scan").start();
+    }
+
+    private void convertAndOfferPack(final IconPacks.Pack pack) {
+        final AlertDialog wait = new AlertDialog.Builder(this)
+                .setTitle(L10n.t(this, "ik_building"))
+                .setMessage("…")
+                .setCancelable(false)
+                .show();
+        new Thread(() -> {
+            try {
+                java.util.LinkedHashMap<String, String> map =
+                        IconPacks.parseAppfilter(this, pack.pkg);
+                if (map.isEmpty()) throw new IllegalStateException("appfilter 无映射条目");
+                File zip = IconPacks.build(this, pack.pkg, map, (done, total) ->
+                        runOnUiThread(() -> {
+                            if (wait.isShowing()) wait.setMessage(done + " / " + total);
+                        }));
+                final int n = IconPacks.countIcons(zip);
+                runOnUiThread(() -> {
+                    try {
+                        wait.dismiss();
+                    } catch (Throwable ignored) {
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle(L10n.t(this, "ik_confirm_title"))
+                            .setMessage(L10n.t(this, "ik_confirm_msg")
+                                    .replace("%1", String.valueOf(n)))
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setPositiveButton(android.R.string.ok, (d, w) -> deployIconsFile(zip))
+                            .show();
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> {
+                    try {
+                        wait.dismiss();
+                    } catch (Throwable ignored) {
+                    }
+                    log("图标包转换失败: " + t);
+                });
+            }
+        }, "ik-build").start();
+    }
+
+    /** 复用部署管线：自动备份整个 /data/system/theme 后写入 icons 组件 */
+    private void deployIconsFile(File zip) {
+        String ts = String.valueOf(System.currentTimeMillis() / 1000);
+        StringBuilder sb = new StringBuilder();
+        sb.append("mkdir -p /sdcard/ThemeToolBackup/backup_").append(ts).append('\n');
+        sb.append("cp -a /data/system/theme/. /sdcard/ThemeToolBackup/backup_").append(ts).append("/\n");
+        sb.append("chmod -R 777 /sdcard/ThemeToolBackup/backup_").append(ts).append('\n');
+        sb.append("cp '").append(zip.getAbsolutePath()).append("' /data/system/theme/icons\n");
+        sb.append("chown system_theme:system_theme /data/system/theme/icons\n");
+        sb.append("chmod 755 /data/system/theme/icons\n");
+        sb.append("echo ICONS-DEPLOY-DONE\n");
+        String r = execSu(sb.toString());
+        log(r);
+        if (r.contains("ICONS-DEPLOY-DONE")) {
+            log(L10n.t(this, "ik_applied"));
+        } else {
+            log(L10n.t(this, "ik_deploy_fail"));
+        }
     }
 
     /** 一键把 Hyper 时钟小组件钉到桌面（免去在系统选择器里翻找） */

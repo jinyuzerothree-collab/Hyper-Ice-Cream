@@ -109,6 +109,17 @@ public class L10n {
         put("wl_apply", "保存并应用到桌面", "保存並應用到桌面", "Save & apply to home screen");
         put("wl_applied", "已应用！桌面未刷新请等待下一分钟或重新添加小组件。", "已應用！桌面未刷新請等待下一分鐘或重新添加小組件。", "Applied! If not refreshed, wait a minute or re-add the widget.");
         put("wl_note", "时间每分钟自动刷新；若被省电冻结，请把本应用加入省电白名单。", "時間每分鐘自動刷新；若被省電凍結，請把本應用加入省電白名單。", "Time refreshes every minute; whitelist this app if battery saver freezes it.");
+        // v3.1 图标包导入
+        put("ik_section", "图标包导入（实验性）", "圖標包導入（實驗性）", "Icon pack import (experimental)");
+        put("ik_scan", "检测已装图标包", "檢測已裝圖標包", "Detect installed icon packs");
+        put("ik_none", "未检测到图标包：需要安装含 appfilter 映射的第三方图标包（Nova/ADW/Lawnchair 格式）。", "未檢測到圖標包：需要安裝含 appfilter 映射的第三方圖標包（Nova/ADW/Lawnchair 格式）。", "No icon packs found — install a pack with appfilter.xml (Nova/ADW/Lawnchair style).");
+        put("ik_pick_title", "选择图标包", "選擇圖標包", "Pick an icon pack");
+        put("ik_building", "正在提取图标…", "正在提取圖標…", "Extracting icons…");
+        put("ik_confirm_title", "应用图标包？", "應用圖標包？", "Apply this icon pack?");
+        put("ik_confirm_msg", "已提取 %1 个图标。\n将写入系统主题 icons 组件（会先自动备份当前主题），重启桌面生效。", "已提取 %1 個圖標。\n將寫入系統主題 icons 組件（會先自動備份當前主題），重啟桌面生效。", "Extracted %1 icons.\nWrites the icons component into the system theme (auto-backup first). Restart launcher to apply.");
+        put("ik_applied", "✅ 图标包已应用。部分图标未变化属正常（未映射应用回退原图）；请点「重启桌面」生效。", "✅ 圖標包已應用。部分圖標未變化屬正常（未映射應用回退原圖）；請點「重啟桌面」生效。", "✅ Icon pack applied. Unmapped apps keep original icons; tap 'Restart launcher' to apply.");
+        put("ik_deploy_fail", "部署未确认，检查上方日志（多半是 su 未授权）。", "部署未確認，檢查上方日誌（多半是 su 未授權）。", "Deploy not confirmed — check the log (su denied?).");
+        put("ik_note", "支持标准 appfilter 图标包；未映射的应用自动回退原图标。", "支持標準 appfilter 圖標包；未映射的應用自動回退原圖標。", "Standard appfilter packs supported; unmapped apps fall back to original icons.");
     }
 
     public static String t(Context c, String key) {
