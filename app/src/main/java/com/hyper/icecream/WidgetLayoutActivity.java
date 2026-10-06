@@ -1,8 +1,11 @@
 package com.hyper.icecream;
 
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -10,6 +13,7 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -23,20 +27,20 @@ import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.HashMap;
 
-/**
- * 时钟小组件布局编辑器（实验性）：六元素数字微调，顶部实时预览。
- * 每元素：左右偏移 / 上下偏移（dp）、大小（%，100=原始）、字体粗细（细/常规/粗/特粗）、
- * 颜色色片、显隐。所有数值相对原有布局基线。
- */
+/** 时钟小组件布局编辑器 v2：预览可拖拽（蓝框选中+移动），数字微调联动，保存应用同步桌面。 */
 public class WidgetLayoutActivity extends Activity {
 
     private static final int[] PALETTE = {
             0xFFFFFFFF, 0xFF000000, 0xFFFF80AB, 0xFF82B1FF, 0xFFFFE57F, 0xFF69F0AE};
 
     private WidgetLayout layout;
-    private ImageView preview;
-    private final java.util.HashMap<String, LinearLayout> cards = new java.util.HashMap<>();
+    private PreviewView preview;
+    private ScrollView scroll;
+    private final HashMap<String, LinearLayout> cards = new HashMap<>();
+    private String selKey;
+    private int pw = 480, ph = 960, pwDp = 480;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +56,7 @@ public class WidgetLayoutActivity extends Activity {
                 night ? new int[]{0xFF1B2438, 0xFF241B33, 0xFF0F141F}
                       : new int[]{0xFFFFD3E2, 0xFFE3D4FF, 0xFFFFEDF0}));
 
-        ScrollView scroll = new ScrollView(this);
+        scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
@@ -69,24 +73,23 @@ public class WidgetLayoutActivity extends Activity {
         body.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText(L10n.t(this, "wl_sub"));
+        sub.setText(L10n.t(this, "wl_sub") + " 预览中点选元素可直接拖动。");
         sub.setTextSize(12);
         sub.setTextColor(night ? 0xB3FFFFFF : 0x99111111);
         sub.setPadding(0, dp(4), 0, dp(8));
         body.addView(sub);
 
-        // 预览面板（深色圆角底，模拟桌面深色壁纸）
+        // 预览面板
         FrameLayout pvWrap = new FrameLayout(this);
         GradientDrawable pvBg = new GradientDrawable();
         pvBg.setColor(0xFF23262E);
         pvBg.setCornerRadius(dp(16));
         pvWrap.setBackground(pvBg);
         pvWrap.setPadding(dp(10), dp(14), dp(10), dp(14));
-        preview = new ImageView(this);
-        preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        preview.setAdjustViewBounds(true);
+        preview = new PreviewView(this);
         pvWrap.addView(preview, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(300), Gravity.CENTER));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER));
         body.addView(pvWrap);
 
         TextView note = new TextView(this);
@@ -105,14 +108,14 @@ public class WidgetLayoutActivity extends Activity {
         reset.setOnClickListener(v -> {
             layout.resetDefault();
             refreshAllControls();
-            renderPreview();
+            preview.refresh();
         });
         Button preset = new Button(this);
         preset.setText(L10n.t(this, "wl_preset_theme"));
         preset.setOnClickListener(v -> {
             layout.applyThemePreset();
             refreshAllControls();
-            renderPreview();
+            preview.refresh();
         });
         btnRow.addView(reset, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -128,6 +131,8 @@ public class WidgetLayoutActivity extends Activity {
         apply.setOnClickListener(v -> {
             layout.save(this);
             HyperWidgetProvider.renderAll(this);
+            // 双保险：桌面缓存可能延迟，500ms 后再刷一次
+            preview.postDelayed(() -> HyperWidgetProvider.renderAll(this), 500);
             Toast.makeText(this, L10n.t(this, "wl_applied"), Toast.LENGTH_LONG).show();
         });
         LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(
@@ -136,7 +141,158 @@ public class WidgetLayoutActivity extends Activity {
         body.addView(apply, alp);
 
         setContentView(root);
-        renderPreview();
+        preview.post(() -> {
+            computeDims();
+            preview.refresh();
+            refreshAllControls();
+        });
+    }
+
+    /** 预览尺寸：优先桌面已添加组件的真实宽高 */
+    private void computeDims() {
+        int wDpR = 150, hDpR = 300; // 默认 1:2
+        try {
+            android.appwidget.AppWidgetManager mgr =
+                    android.appwidget.AppWidgetManager.getInstance(this);
+            int[] ids = mgr.getAppWidgetIds(
+                    new ComponentName(this, HyperWidgetProvider.class));
+            if (ids.length > 0) {
+                android.os.Bundle o = mgr.getAppWidgetOptions(ids[0]);
+                wDpR = Math.max(o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 150),
+                        o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 110));
+                hDpR = Math.max(o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 300),
+                        o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 220));
+            }
+        } catch (Throwable ignored) {
+        }
+        int viewW = Math.max(200, scroll.getWidth() - dp(20));
+        pw = Math.max(120, Math.min(1200, (int) (wDpR * getResources().getDisplayMetrics().density)));
+        ph = Math.max(240, Math.min(2400, (int) (hDpR * getResources().getDisplayMetrics().density)));
+        pwDp = Math.max(1, wDpR);
+        preview.setDims(pw, ph, pwDp);
+        // view 宽度铺满，高度按位图比例
+        float scale = viewW / (float) pw;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (ph * scale));
+        preview.setLayoutParams(lp);
+        preview.setScreenScale(scale);
+    }
+
+    /** 预览视图：渲染 + 命中 + 拖动（拖动直接改 dx/dy） */
+    private class PreviewView extends View {
+        Bitmap bmp;
+        int bw, bh, bwDp;
+        float screenScale = 1f;
+        String sel;
+        String getSel() { return sel; }
+        float lastX, lastY;
+        android.graphics.RectF[] rects;
+
+        PreviewView(Context c) {
+            super(c);
+        }
+
+        void setDims(int w, int h, int wDp) {
+            bw = w;
+            bh = h;
+            bwDp = wDp;
+        }
+
+        void setScreenScale(float s) {
+            screenScale = s;
+        }
+
+        void refresh() {
+            rects = HyperWidgetProvider.getElementRects(getContext(), bw, bh, bwDp);
+            bmp = HyperWidgetProvider.renderCanvas(getContext(), bw, bh, bwDp, sel);
+            invalidate();
+        }
+
+        private android.graphics.RectF selRect() {
+            if (sel == null || rects == null) return null;
+            for (int i = 0; i < WidgetLayout.KEYS.length; i++) {
+                if (WidgetLayout.KEYS[i].equals(sel)) return rects[i];
+            }
+            return null;
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            if (bmp != null) canvas.drawBitmap(bmp, 0, 0, null);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent ev) {
+            float cx = ev.getX() / screenScale;
+            float cy = ev.getY() / screenScale;
+            switch (ev.getAction()) {
+                case MotionEvent.ACTION_DOWN: {
+                    android.graphics.RectF[] rs =
+                            HyperWidgetProvider.getElementRects(getContext(), bw, bh, bwDp);
+                    String hit = null;
+                    float best = Float.MAX_VALUE;
+                    for (int i = 0; i < WidgetLayout.KEYS.length; i++) {
+                        android.graphics.RectF r = rs[i];
+                        if (r == null) continue;
+                        android.graphics.RectF pad = new android.graphics.RectF(r);
+                        pad.inset(-r.width() * 0.15f - 8, -8);
+                        if (pad.contains(cx, cy)) {
+                            float d = (cx - r.centerX()) * (cx - r.centerX())
+                                    + (cy - r.centerY()) * (cy - r.centerY());
+                            if (d < best) {
+                                best = d;
+                                hit = WidgetLayout.KEYS[i];
+                            }
+                        }
+                    }
+                    sel = hit;
+                    if (sel != null) {
+                        lastX = cx;
+                        lastY = cy;
+                        refresh();
+                        highlightCard(sel);
+                    }
+                    return sel != null;
+                }
+                case MotionEvent.ACTION_MOVE: {
+                    if (sel == null) return false;
+                    WidgetLayout.El e = layout.el(sel);
+                    float ddx = (cx - lastX) / (bw / (float) Math.max(bwDp, 1));
+                    float ddy = (cy - lastY) / (bw / (float) Math.max(bwDp, 1));
+                    e.dx = Math.max(-999, Math.min(999, e.dx + Math.round(ddx)));
+                    e.dy = Math.max(-999, Math.min(999, e.dy + Math.round(ddy)));
+                    lastX = cx;
+                    lastY = cy;
+                    refresh();
+                    return true;
+                }
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL: {
+                    if (sel != null) refreshAllControls(); // 数字框同步拖动结果
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    /** 参数微调卡片：选中元素高亮蓝描边 */
+    private void highlightCard(String key) {
+        for (HashMap.Entry<String, LinearLayout> en : cards.entrySet()) {
+            LinearLayout card = en.getValue();
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(12));
+            bg.setColor(isNight() ? 0x33FFFFFF : 0x59FFFFFF);
+            if (en.getKey().equals(key)) {
+                bg.setStroke(dp(2), 0xFF2196F3);
+            }
+            card.setBackground(bg);
+        }
+        LinearLayout card = cards.get(key);
+        if (card != null) {
+            scroll.post(() -> scroll.smoothScrollTo(0, card.getTop() + dp(40)));
+        }
     }
 
     /** 单元素卡：显隐 / 左右偏移 / 上下偏移 / 大小 / 粗细 / 颜色（全部数字输入） */
@@ -169,23 +325,19 @@ public class WidgetLayoutActivity extends Activity {
         show.setChecked(e.on);
         show.setOnCheckedChangeListener((b, on) -> {
             layout.el(key).on = on;
-            renderPreview();
+            renderPreviewSafe();
         });
         head.addView(show);
         card.addView(head);
 
-        // 左右偏移 / 上下偏移（dp，可负）
         card.addView(numRow(key, night, L10n.t(this, "wl_pos_x"), String.valueOf(e.dx),
                 L10n.t(this, "wl_unit_dp"), true, v -> layout.el(key).dx = v));
         card.addView(numRow(key, night, L10n.t(this, "wl_pos_y"), String.valueOf(e.dy),
                 L10n.t(this, "wl_unit_dp"), true, v -> layout.el(key).dy = v));
-        // 大小（%，100 = 原始）
         card.addView(numRow(key, night, L10n.t(this, "wl_size"),
                 String.valueOf(Math.round(e.s * 100)), L10n.t(this, "wl_unit_pct"),
                 false, v -> layout.el(key).s = v));
-        // 字体粗细
         card.addView(weightRow(key, e.w));
-        // 颜色
         card.addView(colorRow(key));
 
         cards.put(key, card);
@@ -231,7 +383,7 @@ public class WidgetLayoutActivity extends Activity {
                         setter.set((int) Float.parseFloat(s.toString().trim()));
                     } catch (Throwable bad2) { }
                 }
-                renderPreview();
+                renderPreviewSafe();
             }
         });
         return row;
@@ -257,7 +409,7 @@ public class WidgetLayoutActivity extends Activity {
         }
         rg.setOnCheckedChangeListener((g, id) -> {
             layout.el(key).w = id - 400;
-            renderPreview();
+            renderPreviewSafe();
         });
         LinearLayout.LayoutParams rglp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -286,7 +438,7 @@ public class WidgetLayoutActivity extends Activity {
             chip.setOnClickListener(v -> {
                 layout.el(key).c = col;
                 refreshAllControls();
-                renderPreview();
+                renderPreviewSafe();
             });
             row.addView(chip);
         }
@@ -314,34 +466,11 @@ public class WidgetLayoutActivity extends Activity {
             parent.removeView(card);
             parent.addView(buildCard(k, isNight()), pos);
         }
+        highlightCard(preview != null ? preview.getSel() : null);
     }
 
-    private void renderPreview() {
-        try {
-            int w = 480, h = 960, wDp = 480;
-            try {
-                // 优先用桌面已添加组件的真实宽高（解决预览与桌面不同步）
-                android.appwidget.AppWidgetManager mgr =
-                        android.appwidget.AppWidgetManager.getInstance(this);
-                int[] ids = mgr.getAppWidgetIds(
-                        new android.content.ComponentName(this, HyperWidgetProvider.class));
-                if (ids.length > 0) {
-                    android.os.Bundle o = mgr.getAppWidgetOptions(ids[0]);
-                    float den = getResources().getDisplayMetrics().density;
-                    int wDpR = Math.max(o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110),
-                            o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 110));
-                    int hDpR = Math.max(o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 220),
-                            o.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 220));
-                    w = Math.max(120, Math.min(1200, (int) (wDpR * den)));
-                    h = Math.max(240, Math.min(2400, (int) (hDpR * den)));
-                    wDp = Math.max(1, wDpR);
-                }
-            } catch (Throwable ig) {
-            }
-            Bitmap b = HyperWidgetProvider.renderCanvas(this, w, h, wDp);
-            preview.setImageBitmap(b);
-        } catch (Throwable ignored) {
-        }
+    private void renderPreviewSafe() {
+        preview.refresh();
     }
 
     private boolean isNight() {

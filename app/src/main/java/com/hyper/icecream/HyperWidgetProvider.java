@@ -142,6 +142,11 @@ public class HyperWidgetProvider extends AppWidgetProvider {
      * pxPerDp = 画布宽 / 小组件实际 dp 宽；编辑器预览传 wDp = 画布宽（1dp = 1px）。
      */
     public static Bitmap renderCanvas(Context ctx, int w, int h, int wDp) {
+        return renderCanvas(ctx, w, h, wDp, null);
+    }
+
+    /** highlightKey 非空时在该元素外围画蓝色选中框（布局编辑器拖拽用） */
+    public static Bitmap renderCanvas(Context ctx, int w, int h, int wDp, String highlightKey) {
         WidgetLayout layout = WidgetLayout.load(ctx);
         float pxPerDp = w / (float) Math.max(wDp, 1);
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
@@ -170,6 +175,76 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         drawEl(cv, p, w, h, pxPerDp, layout, "lunar", getLunarString());
         drawEl(cv, p, w, h, pxPerDp, layout, "weather", getWeatherText(ctx));
         drawWxIconEl(cv, p, w, h, pxPerDp, layout);
+        if (highlightKey != null) {
+            android.graphics.RectF r = elementRect(layout, highlightKey, w, h, pxPerDp, p);
+            if (r != null) {
+                Paint hp = new Paint(Paint.ANTI_ALIAS_FLAG);
+                hp.setColor(0x332196F3);
+                hp.setStyle(Paint.Style.FILL);
+                cv.drawRect(r, hp);
+                hp.setStyle(Paint.Style.STROKE);
+                hp.setStrokeWidth(Math.max(3f, h * 0.006f));
+                hp.setColor(0xFF2196F3);
+                cv.drawRect(r, hp);
+            }
+        }
+        return out;
+    }
+
+    /** 单元素包围盒（与 drawEl/drawWxIconEl 几何一致）；p 需已设 textAlign 无关，仅测量用 */
+    private static android.graphics.RectF elementRect(WidgetLayout layout, String key,
+                                                      int w, int h, float pxPerDp, Paint reuse) {
+        WidgetLayout.El e = layout.el(key);
+        if (!e.on) return null;
+        Paint mp = new Paint(reuse == null ? Paint.ANTI_ALIAS_FLAG : reuse.getFlags());
+        mp.setTextSize(Math.max(8f, WidgetLayout.baseS(key) * h * e.s));
+        mp.setTypeface(typefaceFor(e.w));
+        float left = WidgetLayout.baseX(key) * w + e.dx * pxPerDp;
+        float baseline = WidgetLayout.baseY(key) * h + e.dy * pxPerDp;
+        if ("wxicon".equals(key)) {
+            float size = Math.max(16f, WidgetLayout.baseS(key) * h * e.s);
+            return new android.graphics.RectF(left, baseline - size, left + size, baseline);
+        }
+        float tw = mp.measureText(textFor(key, layout));
+        float ascent = mp.getFontMetrics().ascent;
+        float descent = mp.getFontMetrics().descent;
+        if ("time".equals(key) || "dow".equals(key) || "period".equals(key)
+                || "date".equals(key) || "lunar".equals(key) || "weather".equals(key)) {
+            // 占位文本宽度足够贴近真实（真实文本由调用方渲染）
+        }
+        return new android.graphics.RectF(left, baseline + ascent, left + tw, baseline + descent * 0.4f);
+    }
+
+    /** 渲染同款文本（供包围盒测量） */
+    private static String textFor(String key, WidgetLayout layout) {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int hr = cal.get(java.util.Calendar.HOUR_OF_DAY);
+        if ("time".equals(key)) return new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
+        if ("date".equals(key)) return new SimpleDateFormat("M月d日", Locale.CHINA).format(new Date());
+        if ("dow".equals(key)) return new SimpleDateFormat("EEEE", Locale.CHINA).format(new Date());
+        if ("lunar".equals(key)) return getLunarString();
+        if ("weather".equals(key)) return "晴 20°";
+        if ("period".equals(key)) {
+            if (hr >= 0 && hr < 5) return "凌晨";
+            if (hr < 8) return "早上";
+            if (hr < 12) return "上午";
+            if (hr < 14) return "中午";
+            if (hr < 18) return "下午";
+            if (hr < 22) return "晚上";
+            return "深夜";
+        }
+        return "";
+    }
+
+    /** 六元素包围盒（编辑器拖拽命中用），顺序同 WidgetLayout.KEYS */
+    public static android.graphics.RectF[] getElementRects(Context ctx, int w, int h, int wDp) {
+        WidgetLayout layout = WidgetLayout.load(ctx);
+        float pxPerDp = w / (float) Math.max(wDp, 1);
+        Paint mp = new Paint(Paint.ANTI_ALIAS_FLAG);
+        android.graphics.RectF[] out = new android.graphics.RectF[WidgetLayout.KEYS.length];
+        for (int i = 0; i < WidgetLayout.KEYS.length; i++) {
+            out[i] = elementRect(layout, WidgetLayout.KEYS[i], w, h, pxPerDp, mp);
+        }
         return out;
     }
 
