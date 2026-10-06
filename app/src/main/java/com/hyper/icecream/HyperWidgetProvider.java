@@ -173,7 +173,19 @@ public class HyperWidgetProvider extends AppWidgetProvider {
         drawEl(cv, p, w, h, pxPerDp, layout, "date",
                 new SimpleDateFormat("M月d日", Locale.CHINA).format(new Date()));
         drawEl(cv, p, w, h, pxPerDp, layout, "lunar", getLunarString());
-        drawEl(cv, p, w, h, pxPerDp, layout, "weather", getWeatherText(ctx));
+        String wxText = getWeatherText(ctx);
+        // 天气图标兜底：wxCat 未设置时从文本推断
+        if (wxCat < 0 && wxText != null && !wxText.isEmpty()) {
+            if (wxText.contains("晴") && !wxText.contains("多云")) wxCat = 0;
+            else if (wxText.contains("多云")) wxCat = 1;
+            else if (wxText.contains("阴")) wxCat = 2;
+            else if (wxText.contains("雪")) wxCat = 4;
+            else if (wxText.contains("雷")) wxCat = 5;
+            else if (wxText.contains("雨") || wxText.contains("阵雨")) wxCat = 3;
+            else if (wxText.contains("雾")) wxCat = 6;
+            else wxCat = 1;
+        }
+        drawEl(cv, p, w, h, pxPerDp, layout, "weather", wxText);
         drawWxIconEl(cv, p, w, h, pxPerDp, layout);
         if (highlightKey != null) {
             android.graphics.RectF r = elementRect(layout, highlightKey, w, h, pxPerDp, p);

@@ -150,6 +150,10 @@ public class WidgetLayoutActivity extends Activity {
 
     /** 预览尺寸：优先桌面已添加组件的真实宽高 */
     private void computeDims() {
+        try { _computeDimsInner(); } catch (Throwable t) { System.err.println("computeDims: " + t); }
+    }
+
+    private void _computeDimsInner() {
         int wDpR = 150, hDpR = 300; // 默认 1:2
         try {
             android.appwidget.AppWidgetManager mgr =
@@ -174,7 +178,8 @@ public class WidgetLayoutActivity extends Activity {
         float scale = viewW / (float) pw;
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (int) (ph * scale));
-        preview.setLayoutParams(lp);
+        preview.setLayoutParams(new FrameLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (ph * scale)));
         preview.setScreenScale(scale);
     }
 
@@ -203,8 +208,12 @@ public class WidgetLayoutActivity extends Activity {
         }
 
         void refresh() {
-            rects = HyperWidgetProvider.getElementRects(getContext(), bw, bh, bwDp);
-            bmp = HyperWidgetProvider.renderCanvas(getContext(), bw, bh, bwDp, sel);
+            try {
+                rects = HyperWidgetProvider.getElementRects(getContext(), bw, bh, bwDp);
+                bmp = HyperWidgetProvider.renderCanvas(getContext(), bw, bh, bwDp, sel);
+            } catch (Throwable t) {
+                System.err.println("preview refresh: " + t);
+            }
             invalidate();
         }
 
@@ -224,6 +233,13 @@ public class WidgetLayoutActivity extends Activity {
 
         @Override
         public boolean onTouchEvent(MotionEvent ev) {
+            try { return _onTouch(ev); } catch (Throwable t) {
+                System.err.println("preview touch: " + t);
+                return false;
+            }
+        }
+
+        private boolean _onTouch(MotionEvent ev) {
             float cx = ev.getX() / screenScale;
             float cy = ev.getY() / screenScale;
             switch (ev.getAction()) {
