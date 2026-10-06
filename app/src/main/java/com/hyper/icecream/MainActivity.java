@@ -478,6 +478,21 @@ public class MainActivity extends Activity {
             });
             tools.addView(applyCounts);
 
+            Button bigIconBtn = new Button(this);
+            bigIconBtn.setText("大图标样式设置（拉起主题商店选择器）");
+            bigIconBtn.setOnClickListener(v -> {
+                try {
+                    android.content.Intent bi = new android.content.Intent();
+                    bi.setClassName("com.android.thememanager",
+                            "com.android.thememanager.activity.LargeIconPickerActivity");
+                    bi.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(bi);
+                } catch (Throwable ex) {
+                    Toast.makeText(this, "启动失败：" + ex, Toast.LENGTH_LONG).show();
+                }
+            });
+            tools.addView(bigIconBtn);
+
             TextView dockNote = new TextView(this);
             dockNote.setText(L10n.t(this, "dock_patch_note"));
             dockNote.setTextSize(11);
