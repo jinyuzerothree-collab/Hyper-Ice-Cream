@@ -16,15 +16,21 @@ V_XIAOAI=$((0x989ae4))
 V_SEARCH=$((0x989b7c))
 V_REMOTE=$((0x16159f8))
 V_BIGENT=$((0x1acb9f4))    # BigIconUtil.showBigIconEntrance -> 永远 true（解锁大图标入口）
+V_EDITVAL=$((0x1acc0f8))   # ValidEditShortcutMenuItem.isValid -> true（编辑项可点击）
 ORIG_BIG="fd79bfa9"
 BIG_TRUE="c0820091c0035fd6"  # add x0,x22,#0x20 (true) ; ret
 
 CONF=/data/system/hypericecream_dock.conf
-HX=1; HS=1; HR=1
+HX=1; HS=1; HR=1; HE=1
+RECENTS_N=0   # 0=不 patch（原生逻辑）；N=最近应用数量固定为 N
+DOCKMAX_N=0   # 0=不 patch；N=dock 应用容量
 if [ -f "$CONF" ]; then
   grep -q "hide_xiaoai=0" "$CONF" && HX=0
   grep -q "hide_search=0" "$CONF" && HS=0
   grep -q "hide_remote=0" "$CONF" && HR=0
+  RN=$(grep "^recents_count=" "$CONF" | head -1 | cut -d= -f2 | tr -d ' \r')
+  case "$RN" in ''|*[!0-9]*) ;; *) [ "$RN" -ge 1 ] && [ "$RN" -le 20 ] && RECENTS_N=$RN;; esac
+  grep -q "hide_edit=0" "$CONF" && HE=0
 fi
 
 do_patch() {
@@ -52,6 +58,34 @@ do_patch() {
   C=$(RD $AR)
   if [ "$HR" = "1" ] && [ "$C" = "$ORIG_MIRROR" ]; then WR $AR '\xc0\x03\x5f\xd6'; echo "patched remote"; fi
   if [ "$HR" = "0" ] && [ "$C" = "$RET_INSN" ]; then WR $AR '\xfd\x79\xbf\xa9'; echo "restored remote"; fi
+  # 最近应用数量（recommendMaxCount -> smi(N)）：目标桩比对，当前!=目标就写目标
+  AR2=$(( BASE + 0x97fc68 ))
+  CR=$(RD $AR2)
+  REC_STUB() { H=$(printf '%04x' $(( $1 * 2 ))); echo "${H:2:2}${H:0:2}8052c0035fd6"; }
+  if [ "$RECENTS_N" -ge 1 ]; then
+    WANT=$(REC_STUB $RECENTS_N)
+    if [ "$CR" != "$WANT" ]; then
+      printf "$(echo $WANT | sed 's/../\\x&/g')" > /data/local/tmp/hicpw.bin
+      dd if=/data/local/tmp/hicpw.bin of=/proc/$PID/mem bs=1 seek=$AR2 count=8 conv=notrunc 2>/dev/null
+      echo "patched recents-count=$RECENTS_N (was $CR)"
+    fi
+  else
+    case "$CR" in
+      *008052)
+        printf '\xfd\x79\xbf\xa9\xfd\x03\x0f\xaa' > /data/local/tmp/hicpw.bin
+        dd if=/data/local/tmp/hicpw.bin of=/proc/$PID/mem bs=1 seek=$AR2 count=8 conv=notrunc 2>/dev/null
+        echo "restored recents-count";;
+    esac
+  fi
+  # dock 应用容量（hotSeatMaxCount）：仅当现存补丁（历史残留）时还原
+  AD=$(( BASE + 0xa89c40 ))
+  CD=$(RD $AD)
+  case "$CD" in
+    *008052)
+      printf '\xfd\x79\xbf\xa9\xfd\x03\x0f\xaa' > /data/local/tmp/hicpw2.bin
+      dd if=/data/local/tmp/hicpw2.bin of=/proc/$PID/mem bs=1 seek=$AD count=8 conv=notrunc 2>/dev/null
+      echo "restored dock-max (legacy)";;
+  esac
   # 大图标入口解锁（showBigIconEntrance -> true，8 字节桩；恢复写回原序言）
   AB=$(( BASE + V_BIGENT ))
   CB=$(RD $AB)
@@ -62,9 +96,43 @@ do_patch() {
   elif [ "$CB" = "c0820091" ]; then
     echo "bigicon-entrance already patched"
   fi
+  # 编辑菜单项（平板端点击无响应，AOT 缺实现）——默认隐藏：isValid -> false
+  AE=$(( BASE + V_EDITVAL ))
+  CE=$(RD $AE)
+  EDIT_FALSE="30c20091c0035fd6"
+  if [ "$HE" = "1" ]; then
+    if [ "$CE" != "$EDIT_FALSE" ]; then
+      printf '\x30\xc2\x00\x91\xc0\x03\x5f\xd6' > /data/local/tmp/hicpw.bin
+      dd if=/data/local/tmp/hicpw.bin of=/proc/$PID/mem bs=1 seek=$AE count=8 conv=notrunc 2>/dev/null
+      echo "patched edit-valid=false (hidden)"
+    fi
+  else
+    if [ "$CE" = "$EDIT_FALSE" ]; then
+      printf '\xfd\x79\xbf\xa9\xfd\x03\x0f\xaa' > /data/local/tmp/hicpw.bin
+      dd if=/data/local/tmp/hicpw.bin of=/proc/$PID/mem bs=1 seek=$AE count=8 conv=notrunc 2>/dev/null
+      echo "restored edit-valid"
+    fi
+  fi
+  # 互联图标显示事件吞掉（_onMirrorDesktopShow -> ret，防事件重建）
+  AS2=$(( BASE + 0x1616094 ))
+  CS2=$(RD $AS2)
+  if [ "$HR" = "1" ]; then
+    if [ "$CS2" = "$ORIG_BIG" ]; then
+      printf '\xc0\x03\x5f\xd6' > /data/local/tmp/hicpw.bin
+      dd if=/data/local/tmp/hicpw.bin of=/proc/$PID/mem bs=1 seek=$AS2 count=4 conv=notrunc 2>/dev/null
+      echo "patched mirror-show"
+    fi
+  else
+    if [ "$CS2" = "$RET_INSN" ]; then
+      printf '\xfd\x79\xbf\xa9' > /data/local/tmp/hicpw.bin
+      dd if=/data/local/tmp/hicpw.bin of=/proc/$PID/mem bs=1 seek=$AS2 count=4 conv=notrunc 2>/dev/null
+      echo "restored mirror-show"
+    fi
+  fi
 
-  V1=$(RD $AX); V2=$(RD $AS); V3=$(RD $AR); V4=$(RD $AB)
-  echo "state xiaoai=$V1 search=$V2 remote=$V3 bigent=$V4 conf=($HX,$HS,$HR)"
+  V1=$(RD $AX); V2=$(RD $AS); V3=$(RD $AR); V4=$(RD $AB); V5=$(RD $AE)
+  VR=$(RD $AR2)
+  echo "state xiaoai=$V1 search=$V2 remote=$V3 bigent=$V4 editval=$V5 recents=$VR conf=($HX,$HS,$HR rn=$RECENTS_N)"
 }
 
 # 单次模式（带参数）
