@@ -215,8 +215,7 @@ public class MainActivity extends Activity {
         String conf = "hide_xiaoai=" + (sp.getBoolean("hide_xiaoai", true) ? 1 : 0) + "\n"
                 + "hide_search=" + (sp.getBoolean("hide_search", true) ? 1 : 0) + "\n"
                 + "hide_remote=" + (sp.getBoolean("hide_remote", true) ? 1 : 0) + "\n"
-                + "recents_count=" + sp.getInt("recents_count", 0) + "\n"
-                + "dock_max=" + sp.getInt("dock_max", 0) + "\n";
+                + "recents_count=" + sp.getInt("recents_count", 0) + "\n";
         try {
             File tmp = new File(getCacheDir(), "dock_conf");
             java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp);
@@ -433,7 +432,7 @@ public class MainActivity extends Activity {
             LinearLayout countRow = new LinearLayout(this);
             countRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
             TextView l1 = new TextView(this);
-            l1.setText("最近应用数量（1-20，0=原生）");
+            l1.setText("最近应用数量（1-20）");
             l1.setTextSize(13);
             countRow.addView(l1);
             final android.widget.EditText rnIn = new android.widget.EditText(this);
@@ -447,33 +446,15 @@ public class MainActivity extends Activity {
             countRow.addView(rnIn);
             tools.addView(countRow);
 
-            LinearLayout countRow2 = new LinearLayout(this);
-            countRow2.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            TextView l2 = new TextView(this);
-            l2.setText("Dock 应用容量（1-20，0=原生 5）");
-            l2.setTextSize(13);
-            countRow2.addView(l2);
-            final android.widget.EditText dnIn = new android.widget.EditText(this);
-            dnIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-            dnIn.setText(String.valueOf(dsp.getInt("dock_max", 0)));
-            dnIn.setGravity(android.view.Gravity.CENTER);
-            dnIn.setLayoutParams(rlp);
-            countRow2.addView(dnIn);
-            tools.addView(countRow2);
-
             Button applyCounts = new Button(this);
             applyCounts.setText("应用数量设置");
             applyCounts.setOnClickListener(v -> {
-                int rn = 0, dn = 0;
+                int rn = 0;
                 try {
                     rn = Math.max(0, Math.min(20, Integer.parseInt(rnIn.getText().toString())));
                 } catch (Throwable ig) {
                 }
-                try {
-                    dn = Math.max(0, Math.min(20, Integer.parseInt(dnIn.getText().toString())));
-                } catch (Throwable ig) {
-                }
-                dsp.edit().putInt("recents_count", rn).putInt("dock_max", dn).apply();
+                dsp.edit().putInt("recents_count", rn).apply();
                 writeDockConf();
             });
             tools.addView(applyCounts);
